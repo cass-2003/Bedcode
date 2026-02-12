@@ -997,7 +997,38 @@ def _start_monitor(handle: int, chat_id: int, context: ContextTypes.DEFAULT_TYPE
 # ══════════════════════════════════════════════════════════════════
 # 流式模式 — 每条消息启动 claude -p 子进程，实时转发输出
 # ══════════════════════════════════════════════════════════════════
-GIT_BASH_PATH = os.environ.get("GIT_BASH_PATH", r"H:\Git\bin\bash.exe")
+def _find_git_bash() -> str:
+    """自动检测 Git Bash 路径。"""
+    # 1. 环境变量优先
+    env_path = os.environ.get("GIT_BASH_PATH", "")
+    if env_path and os.path.isfile(env_path):
+        return env_path
+    # 2. 常见安装位置
+    candidates = [
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files (x86)\Git\bin\bash.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Git\bin\bash.exe"),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    # 3. where 命令查找
+    try:
+        result = subprocess.run(
+            ["where", "bash"], capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.strip().splitlines():
+            if "git" in line.lower() and os.path.isfile(line.strip()):
+                return line.strip()
+    except Exception:
+        pass
+    # 4. 回退默认
+    logger.warning("未找到 Git Bash，使用默认路径")
+    return r"C:\Program Files\Git\bin\bash.exe"
+
+
+GIT_BASH_PATH = _find_git_bash()
+logger.info(f"Git Bash: {GIT_BASH_PATH}")
 
 
 def _kill_stream_proc():
