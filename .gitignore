@@ -1,0 +1,11 @@
+.env
+bot.log
+__pycache__/
+*.pyc
+images/
+messages/
+window_labels.json
+nul
+.claude/
+test_*_out.txt
+test_popup.txt
