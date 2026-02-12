@@ -12,8 +12,10 @@ import asyncio
 import subprocess
 import logging
 import time
+import signal
 import ctypes
 import ctypes.wintypes
+from collections import deque
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -171,7 +173,7 @@ state = {
     "auto_monitor": True,
     "screenshot_interval": SCREENSHOT_DELAY,
     "monitor_task": None,  # asyncio.Task for the monitor loop
-    "msg_queue": [],       # 等待队列: [text, ...]
+    "msg_queue": deque(),  # 等待队列: deque([text, ...])
     "queue_chat_id": None, # 队列关联的 chat_id
     "status_msg": None,    # 当前状态消息(用于edit_text更新)
     "stream_proc": None,   # 流式模式子进程
@@ -777,6 +779,8 @@ async def _monitor_loop(
 ) -> None:
     """持续监控 Claude Code 状态，推送截图和通知。"""
     interval = state["screenshot_interval"]
+    max_duration = 3600  # 最大监控时长 60 分钟
+    start_time = time.time()
     last_screenshot_time = 0
     was_thinking = False
     idle_count = 0
@@ -795,6 +799,11 @@ async def _monitor_loop(
 
         while True:
             await asyncio.sleep(1.5)
+
+            # 超时保护
+            if time.time() - start_time > max_duration:
+                await _update_status(chat_id, "⏰ 监控超时 (60分钟)，已自动停止", context)
+                break
 
             # 宽限期：等待 Claude 进入 thinking 状态
             if not was_thinking and grace_period > 0:
@@ -906,7 +915,7 @@ async def _monitor_loop(
 
                     # 检查队列是否有待发消息
                     if state["msg_queue"]:
-                        next_msg = state["msg_queue"].pop(0)
+                        next_msg = state["msg_queue"].popleft()
                         remaining = len(state["msg_queue"])
                         queue_text = ""
                         if remaining > 0:
@@ -1205,7 +1214,7 @@ async def _stream_send(text: str, chat_id: int, context: ContextTypes.DEFAULT_TY
 # Auth
 # ══════════════════════════════════════════════════════════════════
 async def auth_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user and update.effective_user.id not in ALLOWED_USERS:
+    if not update.effective_user or update.effective_user.id not in ALLOWED_USERS:
         raise ApplicationHandlerStop()
 
 
@@ -1829,7 +1838,18 @@ async def post_init(application: Application) -> None:
     logger.info("命令菜单已注册")
 
 
+def _cleanup():
+    """清理子进程和监控任务。"""
+    _kill_stream_proc()
+    task = state.get("monitor_task")
+    if task and not task.done():
+        task.cancel()
+    logger.info("BedCode 清理完成")
+
+
 def main() -> None:
+    signal.signal(signal.SIGINT, lambda *_: _cleanup())
+    signal.signal(signal.SIGTERM, lambda *_: _cleanup())
     if not BOT_TOKEN or BOT_TOKEN == "your_bot_token_here":
         print("错误: 请在 .env 中设置 TELEGRAM_BOT_TOKEN")
         return
