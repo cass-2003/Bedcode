@@ -48,11 +48,14 @@ os.environ.pop("https_proxy", None)
 os.environ.pop("all_proxy", None)
 
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-ALLOWED_USERS = {
-    int(uid.strip())
-    for uid in os.environ.get("ALLOWED_USER_IDS", "").split(",")
-    if uid.strip()
-}
+ALLOWED_USERS = set()
+for uid in os.environ.get("ALLOWED_USER_IDS", "").split(","):
+    uid = uid.strip()
+    if uid:
+        try:
+            ALLOWED_USERS.add(int(uid))
+        except ValueError:
+            print(f"警告: 无效的用户ID '{uid}'，已跳过")
 SHELL_TIMEOUT = int(os.environ.get("SHELL_TIMEOUT", "120"))
 WORK_DIR = os.environ.get("WORK_DIR", str(Path.home()))
 SCREENSHOT_DELAY = int(os.environ.get("SCREENSHOT_DELAY", "15"))
@@ -1028,7 +1031,11 @@ async def _stream_reader(proc, chat_id: int, context: ContextTypes.DEFAULT_TYPE)
 
     try:
         while True:
-            line_bytes = await loop.run_in_executor(None, proc.stdout.readline)
+            try:
+                line_bytes = await loop.run_in_executor(None, proc.stdout.readline)
+            except Exception as e:
+                logger.error(f"[流式] stdout 读取异常: {e}")
+                break
             if not line_bytes:
                 logger.info(f"[流式] stdout EOF, 共读取 {line_count} 行")
                 # 检查 stderr
@@ -1061,7 +1068,8 @@ async def _stream_reader(proc, chat_id: int, context: ContextTypes.DEFAULT_TYPE)
             logger.info(f"[流式] 消息类型: {msg_type}")
 
             if msg_type == "assistant":
-                content_list = data.get("message", {}).get("content", [])
+                content_raw = data.get("message", {}).get("content", [])
+                content_list = content_raw if isinstance(content_raw, list) else []
                 for item in content_list:
                     item_type = item.get("type", "")
                     if item_type == "text":
@@ -1137,7 +1145,7 @@ async def _stream_send(text: str, chat_id: int, context: ContextTypes.DEFAULT_TY
         "--output-format", "stream-json",
         "--verbose",
         "--dangerously-skip-permissions",
-        "--add-dir", "J:\\",
+        "--add-dir", state["cwd"],
         text,
     ]
     logger.info(f"[流式] 命令: {' '.join(cmd[:7])} ...")
@@ -1706,6 +1714,9 @@ async def _inject_to_claude(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     if st == "thinking":
         # Claude 正在思考，消息入队列（存原始 inject_text）
+        if len(state["msg_queue"]) >= 50:
+            await update.message.reply_text("⚠️ 队列已满 (50条)，请等待 Claude 完成")
+            return
         state["msg_queue"].append(inject_text)
         state["queue_chat_id"] = update.effective_chat.id
         # 用状态消息显示队列情况（edit已有消息）
@@ -1752,8 +1763,8 @@ async def _run_shell(update: Update, context: ContextTypes.DEFAULT_TYPE, cmd: st
     try:
         result = await asyncio.to_thread(
             lambda: subprocess.run(
-                cmd, capture_output=True, text=True,
-                timeout=SHELL_TIMEOUT, cwd=state["cwd"], shell=True,
+                [GIT_BASH_PATH, "-c", cmd], capture_output=True, text=True,
+                timeout=SHELL_TIMEOUT, cwd=state["cwd"],
             )
         )
         output = result.stdout or ""
