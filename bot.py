@@ -57,6 +57,7 @@ SHELL_TIMEOUT = int(os.environ.get("SHELL_TIMEOUT", "120"))
 WORK_DIR = os.environ.get("WORK_DIR", str(Path.home()))
 SCREENSHOT_DELAY = int(os.environ.get("SCREENSHOT_DELAY", "15"))
 LABELS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "window_labels.json")
+RECENT_DIRS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "recent_dirs.json")
 
 # ── 日志 ─────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -197,6 +198,52 @@ def _save_labels():
 
 
 state["window_labels"] = _load_labels()
+
+
+def _load_recent_dirs() -> list[str]:
+    if os.path.exists(RECENT_DIRS_FILE):
+        try:
+            with open(RECENT_DIRS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+
+def _save_recent_dir(path: str):
+    dirs = _load_recent_dirs()
+    # 去重，最新的放前面，最多保留 8 个
+    path = os.path.normpath(path)
+    dirs = [d for d in dirs if os.path.normpath(d) != path]
+    dirs.insert(0, path)
+    dirs = dirs[:8]
+    try:
+        with open(RECENT_DIRS_FILE, "w", encoding="utf-8") as f:
+            json.dump(dirs, f, ensure_ascii=False)
+    except Exception as e:
+        logger.warning(f"保存路径历史失败: {e}")
+
+
+def _build_dir_buttons() -> list[list]:
+    """生成路径选择按钮列表：当前目录 + Home + 历史路径 + 手动输入"""
+    home = str(Path.home())
+    buttons = [
+        [InlineKeyboardButton(f"📂 当前: {state['cwd'][:30]}", callback_data="newdir:cwd")],
+    ]
+    # 历史路径（去掉与当前/home重复的）
+    seen = {os.path.normpath(state["cwd"])}
+    if os.path.normpath(home) not in seen:
+        buttons.append([InlineKeyboardButton(f"📂 {home[:30]}", callback_data=f"newdir:{home}")])
+        seen.add(os.path.normpath(home))
+    for d in _load_recent_dirs():
+        if os.path.normpath(d) not in seen and os.path.isdir(d):
+            short = os.path.basename(d) or d[:30]
+            buttons.append([InlineKeyboardButton(f"📂 {short}", callback_data=f"newdir:{d}")])
+            seen.add(os.path.normpath(d))
+            if len(buttons) >= 6:
+                break
+    buttons.append([InlineKeyboardButton("✏️ 手动输入路径", callback_data="newdir:manual")])
+    return buttons
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -947,7 +994,7 @@ def _start_monitor(handle: int, chat_id: int, context: ContextTypes.DEFAULT_TYPE
 # ══════════════════════════════════════════════════════════════════
 # 流式模式 — 每条消息启动 claude -p 子进程，实时转发输出
 # ══════════════════════════════════════════════════════════════════
-GIT_BASH_PATH = os.environ.get("GIT_BASH_PATH", r"C:\Program Files\Git\bin\bash.exe")
+GIT_BASH_PATH = os.environ.get("GIT_BASH_PATH", r"H:\Git\bin\bash.exe")
 
 
 def _kill_stream_proc():
@@ -1393,12 +1440,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     elif data == "new_claude":
         # 弹出路径选择菜单
-        home = str(Path.home())
-        buttons = [
-            [InlineKeyboardButton(f"📂 当前: {state['cwd'][:30]}", callback_data="newdir:cwd")],
-            [InlineKeyboardButton(f"📂 {home[:30]}", callback_data=f"newdir:{home}")],
-            [InlineKeyboardButton("✏️ 手动输入路径", callback_data="newdir:manual")],
-        ]
+        buttons = _build_dir_buttons()
         await query.edit_message_text(
             "📁 选择新实例的工作目录：",
             reply_markup=InlineKeyboardMarkup(buttons),
@@ -1454,6 +1496,7 @@ async def _launch_new_claude(chat_id: int, context: ContextTypes.DEFAULT_TYPE, w
     """启动新的 Claude Code 实例。"""
     if work_dir is None:
         work_dir = state["cwd"]
+    _save_recent_dir(work_dir)
     try:
         wt_path = os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WindowsApps\wt.exe")
         git_bash = os.environ.get("GIT_BASH_PATH", GIT_BASH_PATH)
@@ -1502,12 +1545,7 @@ async def cmd_new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await _launch_new_claude(update.effective_chat.id, context, args)
         return
     # 弹出路径选择菜单
-    home = str(Path.home())
-    buttons = [
-        [InlineKeyboardButton(f"📂 当前: {state['cwd'][:30]}", callback_data="newdir:cwd")],
-        [InlineKeyboardButton(f"📂 {home[:30]}", callback_data=f"newdir:{home}")],
-        [InlineKeyboardButton("✏️ 手动输入路径", callback_data="newdir:manual")],
-    ]
+    buttons = _build_dir_buttons()
     await update.message.reply_text(
         "📁 选择新实例的工作目录：",
         reply_markup=InlineKeyboardMarkup(buttons),
