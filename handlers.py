@@ -443,7 +443,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         inject_text = f"{caption} {filepath}"
     else:
         inject_text = f"请分析这个图片 {filepath}"
-    await _inject_to_claude(update, context, inject_text)
+    # 图片消息直接注入（跳过 _needs_file，避免路径中的反斜杠触发文件转换）
+    await _inject_to_claude(update, context, inject_text, skip_file_check=True)
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -497,14 +498,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await _inject_to_claude(update, context, text)
 
 
-async def _inject_to_claude(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
+async def _inject_to_claude(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, skip_file_check: bool = False) -> None:
     handle = _get_handle()
     if not handle:
         await update.message.reply_text("未找到 Claude Code 窗口!\n请先启动 Claude Code，然后 /windows")
         return
 
     inject_text = text
-    if _needs_file(text):
+    if not skip_file_check and _needs_file(text):
         filepath = _save_msg_file(text)
         inject_text = f"请阅读这个文件并按其中的指示操作 {filepath}"
         logger.info(f"长消息保存为文件: {filepath}")
