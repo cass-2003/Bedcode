@@ -23,6 +23,7 @@ from win32_api import (
     capture_window_screenshot, get_window_title,
     send_keys_to_window, send_raw_keys,
     _send_unicode_char, _send_vk, VK_RETURN,
+    copy_image_to_clipboard, paste_image_to_window,
 )
 from claude_detect import (
     detect_claude_state, find_claude_windows,
@@ -439,11 +440,28 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     filepath = os.path.join(IMG_DIR, filename)
     await file.download_to_drive(filepath)
     logger.info(f"图片已保存: {filepath}")
-    if caption:
-        inject_text = f"{caption} {filepath}"
-    else:
-        inject_text = f"请分析这个图片 {filepath}"
-    # 图片消息直接注入（跳过 _needs_file，避免路径中的反斜杠触发文件转换）
+
+    handle = _get_handle()
+
+    # 尝试 Alt+V 粘贴图片到 Claude Code 窗口
+    if handle and not state.get("stream_mode"):
+        copied = await asyncio.to_thread(copy_image_to_clipboard, filepath)
+        if copied:
+            pasted = await asyncio.to_thread(paste_image_to_window, handle)
+            if pasted:
+                await update.message.reply_text("🖼 图片已通过 Alt+V 粘贴")
+                if caption:
+                    # 有 caption：输入文字并回车
+                    await asyncio.to_thread(send_keys_to_window, handle, caption)
+                else:
+                    # 无 caption：直接回车提交图片
+                    await asyncio.to_thread(send_keys_to_window, handle, "请分析这个图片")
+                if state["auto_monitor"]:
+                    _start_monitor(handle, update.effective_chat.id, context)
+                return
+
+    # 降级：路径注入
+    inject_text = f"{caption} {filepath}" if caption else f"请分析这个图片 {filepath}"
     await _inject_to_claude(update, context, inject_text, skip_file_check=True)
 
 

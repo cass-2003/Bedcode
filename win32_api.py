@@ -1,5 +1,6 @@
 """Win32 API: 截屏、按键注入、窗口操作。"""
 import io
+import os
 import time
 import hashlib
 import ctypes
@@ -284,4 +285,39 @@ def send_raw_keys(handle: int, key_parts: list[str]) -> bool:
         return True
     except Exception as e:
         logger.exception(f"按键发送失败: {e}")
+        return False
+
+
+def copy_image_to_clipboard(filepath: str) -> bool:
+    """将图片文件复制到 Windows 剪贴板（BMP 格式）。"""
+    try:
+        import win32clipboard
+        img = Image.open(filepath).convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="BMP")
+        bmp_data = buf.getvalue()[14:]  # 跳过 BMP file header
+        win32clipboard.OpenClipboard()
+        try:
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardData(win32clipboard.CF_DIB, bmp_data)
+        finally:
+            win32clipboard.CloseClipboard()
+        return True
+    except Exception as e:
+        logger.error(f"图片复制到剪贴板失败: {e}")
+        return False
+
+
+def paste_image_to_window(handle: int) -> bool:
+    """激活窗口并发送 Alt+V 粘贴图片（通过 pywinauto.keyboard）。"""
+    try:
+        if not _activate_window(handle):
+            logger.warning(f"无法激活窗口 {handle}，但仍尝试粘贴图片")
+        from pywinauto.keyboard import send_keys
+        send_keys("%v")  # % = Alt in pywinauto
+        time.sleep(1)
+        logger.info("已发送 Alt+V 粘贴图片")
+        return True
+    except Exception as e:
+        logger.error(f"Alt+V 粘贴失败: {e}")
         return False
