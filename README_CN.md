@@ -22,13 +22,13 @@
 <td width="50%">
 
 ### 💬 消息注入
-直接向 Claude Code 终端发送文本。支持文本、图片，长文件自动保存。
+直接向 Claude Code 终端发送文本。支持文本、图片、语音、文件，长消息自动保存。
 
 ### 📸 无干扰截屏
 使用 Win32 PrintWindow API。不激活窗口，不打断 Claude 工作流。
 
 ### ⚡ 实时监控
-通过窗口标题 spinner 字符自动检测 Claude 状态（思考中/空闲）。
+通过窗口标题 spinner 字符自动检测 Claude 状态（思考中/空闲）。显示已用时间。
 
 ### 🎯 快速回复按钮
 自动为 y/n、数字选项、❯ 选择器提示生成内联按钮。
@@ -45,11 +45,20 @@ Claude 思考时自动排队消息。完成后按顺序发送。
 ### 🪟 多窗口管理
 扫描所有 Claude 窗口，支持自定义持久化标签和截图预览。
 
-### 🔄 智能截图去重
-MD5 哈希比对，跳过未变化的帧，节省带宽。
+### 🖼️ 图片粘贴 (Alt+V)
+通过剪贴板 + Alt+V 将 Telegram 图片直接粘贴到 Claude Code，如同桌面拖放。
+
+### 🎤 语音消息
+通过 OpenAI Whisper API 转录语音消息并注入文本到 Claude Code。
+
+### 📄 文件上传
+从 Telegram 直接发送文件（.py, .json, .txt 等）到工作目录。
 
 ### 🌊 流式模式
 运行 `claude -p` 子进程，实时转发 JSON 流。
+
+### 📜 命令历史
+使用 `/history` 查看并重发最近 20 条消息。
 
 ### 🐚 Shell 执行
 使用 `!command` 前缀执行本地 shell 命令。
@@ -57,8 +66,8 @@ MD5 哈希比对，跳过未变化的帧，节省带宽。
 ### 🔔 Hook 通知
 通过 `notify_hook.py` 自动推送 Claude 的响应。
 
-### 📂 动态路径记忆
-记住最近使用的目录，快速访问。
+### 🔄 热重载
+使用 `/reload` 重载 `.env` 配置，无需重启。
 
 </td>
 </tr>
@@ -152,11 +161,15 @@ python bot.py
 | 🪟 `/windows` | 列出所有 Claude Code 窗口 | `/windows` |
 | ➕ `/new` | 以流式模式启动新的 Claude Code 会话 | `/new` |
 | 📂 `/cd` | 更改工作目录 | `/cd C:\Projects` |
+| 📜 `/history` | 查看并重发最近 20 条消息 | `/history` |
+| 🔄 `/reload` | 热重载 `.env` 配置，无需重启 | `/reload` |
 
 ### 特殊前缀
 
 - `!command` - 执行 shell 命令（例如 `!dir`、`!git status`）
-- 直接发送图片 - Bot 下载并将路径注入给 Claude
+- 发送图片 - 通过 Alt+V 剪贴板粘贴到 Claude Code
+- 发送语音消息 - 通过 Whisper API 转录后注入文本
+- 发送文件（.py, .json, .txt 等）- 保存到工作目录并注入路径
 
 ---
 
@@ -272,12 +285,17 @@ BedCode 通过监控 Claude Code 的窗口标题来检测其当前状态：
 
 ```
 Bedcode/
-├── bot.py              # 主 Bot 逻辑和命令处理器
+├── bot.py              # 入口：应用构建、信号处理
+├── config.py           # 配置加载、日志、全局状态、常量
+├── win32_api.py        # Win32 截屏、按键注入、剪贴板、窗口操作
+├── claude_detect.py    # 状态检测、窗口扫描、终端文本读取
+├── monitor.py          # 监控循环、交互提示检测、状态消息
+├── stream_mode.py      # Git Bash 检测、子进程管理、流式读取
+├── handlers.py         # 所有 Telegram 命令/回调/消息处理
+├── utils.py            # 文本分割、结果发送、文件保存、路径持久化
 ├── notify_hook.py      # Claude Code hook 响应通知
 ├── requirements.txt    # Python 依赖
 ├── .env.example        # 配置模板
-├── .gitignore          # Git 忽略规则
-├── test_stream*.py     # 流式模式测试脚本
 ├── README.md           # 英文文档
 ├── README_CN.md        # 中文文档
 └── README_JP.md        # 日文文档
@@ -298,6 +316,8 @@ Bedcode/
 | `SCREENSHOT_DELAY` | 监控模式下截图间隔（秒） | `1.5` | ❌ |
 | `SHELL_TIMEOUT` | Shell 命令超时（秒） | `30` | ❌ |
 | `CLAUDE_TIMEOUT` | Claude 操作超时（秒） | `300` | ❌ |
+| `OPENAI_API_KEY` | OpenAI API 密钥，用于语音消息转录（Whisper） | - | ❌ |
+| `ANTHROPIC_API_KEY` | Anthropic API 密钥，用于图片分析（Vision API 备选） | - | ❌ |
 
 ---
 

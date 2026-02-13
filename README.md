@@ -22,13 +22,13 @@
 <td width="50%">
 
 ### 💬 Message Injection
-Send text directly to Claude Code terminal. Supports text, images, and auto-saves long files.
+Send text directly to Claude Code terminal. Supports text, images, voice, files, and auto-saves long messages.
 
 ### 📸 Non-Intrusive Screenshot
 Uses Win32 PrintWindow API. Doesn't activate window or interrupt Claude's workflow.
 
 ### ⚡ Real-Time Monitoring
-Auto-detects Claude state (thinking/idle) via window title spinner characters.
+Auto-detects Claude state (thinking/idle) via window title spinner characters. Shows elapsed time.
 
 ### 🎯 Quick Reply Buttons
 Auto-generates inline buttons for y/n, numbered options, and ❯ selector prompts.
@@ -45,11 +45,20 @@ Uses SendInput API for arrow keys, enter, numbers, and more.
 ### 🪟 Multi-Window Management
 Scans all Claude windows with custom persistent labels and screenshot previews.
 
-### 🔄 Smart Screenshot Dedup
-MD5 hash comparison to skip unchanged frames and save bandwidth.
+### 🖼️ Image Paste (Alt+V)
+Pastes images from Telegram directly into Claude Code via clipboard + Alt+V, just like desktop drag-and-drop.
+
+### 🎤 Voice Messages
+Transcribes voice messages via OpenAI Whisper API and injects text to Claude Code.
+
+### 📄 File Upload
+Send files (.py, .json, .txt, etc.) from Telegram directly to the working directory.
 
 ### 🌊 Stream Mode
 Runs `claude -p` subprocess with real-time JSON stream forwarding.
+
+### 📜 Command History
+View and resend last 20 messages with `/history`.
 
 ### 🐚 Shell Execution
 Execute local shell commands with `!command` prefix.
@@ -57,8 +66,8 @@ Execute local shell commands with `!command` prefix.
 ### 🔔 Hook Notification
 Auto-pushes Claude's responses via `notify_hook.py`.
 
-### 📂 Dynamic Path Memory
-Remembers recently used directories for quick access.
+### 🔄 Hot Reload
+Reload `.env` config with `/reload` — no restart needed.
 
 </td>
 </tr>
@@ -152,11 +161,15 @@ python bot.py
 | 🪟 `/windows` | List all Claude Code windows | `/windows` |
 | ➕ `/new` | Start new Claude Code session in stream mode | `/new` |
 | 📂 `/cd` | Change working directory | `/cd C:\Projects` |
+| 📜 `/history` | View and resend last 20 messages | `/history` |
+| 🔄 `/reload` | Hot-reload `.env` config without restart | `/reload` |
 
 ### Special Prefixes
 
 - `!command` - Execute shell command (e.g., `!dir`, `!git status`)
-- Send images directly - Bot downloads and injects path to Claude
+- Send images - Pastes into Claude Code via Alt+V clipboard
+- Send voice messages - Transcribed via Whisper API and injected as text
+- Send files (.py, .json, .txt, etc.) - Saved to working directory and path injected
 
 ---
 
@@ -270,12 +283,17 @@ User sends message via Telegram
 
 ```
 Bedcode/
-├── bot.py              # Main bot logic and command handlers
+├── bot.py              # Entry point: app builder, signal handling
+├── config.py           # Config loading, logging, global state, constants
+├── win32_api.py        # Win32 screenshot, key injection, clipboard, window ops
+├── claude_detect.py    # State detection, window scanning, terminal text reading
+├── monitor.py          # Monitor loop, interactive prompt detection, status messages
+├── stream_mode.py      # Git Bash detection, subprocess management, stream reader
+├── handlers.py         # All Telegram command/callback/message handlers
+├── utils.py            # Text splitting, result sending, file saving, path persistence
 ├── notify_hook.py      # Claude Code hook for response notifications
 ├── requirements.txt    # Python dependencies
 ├── .env.example        # Configuration template
-├── .gitignore          # Git ignore rules
-├── test_stream*.py     # Stream mode test scripts
 ├── README.md           # English documentation
 ├── README_CN.md        # Chinese documentation
 └── README_JP.md        # Japanese documentation
@@ -296,6 +314,8 @@ Bedcode/
 | `SCREENSHOT_DELAY` | Delay between screenshots in watch mode (seconds) | `1.5` | ❌ |
 | `SHELL_TIMEOUT` | Timeout for shell commands (seconds) | `30` | ❌ |
 | `CLAUDE_TIMEOUT` | Timeout for Claude operations (seconds) | `300` | ❌ |
+| `OPENAI_API_KEY` | OpenAI API key for voice message transcription (Whisper) | - | ❌ |
+| `ANTHROPIC_API_KEY` | Anthropic API key for image analysis (Vision API fallback) | - | ❌ |
 
 ---
 
