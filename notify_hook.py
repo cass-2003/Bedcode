@@ -17,7 +17,12 @@ env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(env_path)
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-CHAT_ID = os.environ.get("ALLOWED_USER_IDS", "").split(",")[0].strip()
+_raw_chat_id = os.environ.get("ALLOWED_USER_IDS", "").split(",")[0].strip()
+try:
+    CHAT_ID = int(_raw_chat_id) if _raw_chat_id else None
+except ValueError:
+    print(f"WARNING: ALLOWED_USER_IDS 无效值 '{_raw_chat_id}'，通知已禁用")
+    CHAT_ID = None
 
 # 代理绕过（与 bot.py 一致）
 for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
@@ -44,7 +49,7 @@ def send_telegram(text: str) -> bool:
     for i, chunk in enumerate(chunks):
         prefix = f"[{i+1}/{len(chunks)}]\n" if len(chunks) > 1 else ""
         payload = json.dumps({
-            "chat_id": int(CHAT_ID),
+            "chat_id": CHAT_ID,
             "text": f"{prefix}{chunk}",
         }).encode("utf-8")
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"

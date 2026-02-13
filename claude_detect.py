@@ -103,9 +103,8 @@ def _get_active_projects(max_count: int = 10) -> list[str]:
     result = []
     for d in seen:
         parts = d.split("-")
-        if len(parts) >= 2 and len(parts[0]) == 1 and parts[1] == "":
-            path_parts = [p for p in parts[2:] if p]
-            label = path_parts[-1] if path_parts else d
+        if len(parts) >= 2 and len(parts[0]) == 1:
+            label = parts[-1] if parts[-1] else d
         else:
             label = parts[-1] if parts else d
         result.append(label)

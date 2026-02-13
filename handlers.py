@@ -55,7 +55,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         for w in windows:
             marker = " &lt;&lt; 当前" if w["handle"] == state["target_handle"] else ""
             st_label = {"thinking": "思考中", "idle": "空闲", "unknown": "未知"}.get(w["state"], "?")
-            label_tag = f" 📌{w['label']}" if w.get("label") else ""
+            label_tag = f" 📌{html.escape(w['label'])}" if w.get("label") else ""
             win_info += (
                 f"\n  • [{st_label}]{label_tag}{marker}"
                 f"\n    handle: <code>{w['handle']}</code>"
@@ -200,7 +200,7 @@ async def cmd_windows(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         marker = " ✔" if current else ""
         st_label = {"thinking": "思考中", "idle": "空闲", "unknown": "未知"}.get(w["state"], "?")
         label = w.get("label", "")
-        label_tag = f" 📌{label}" if label else f" #{i+1}"
+        label_tag = f" 📌{html.escape(label)}" if label else f" #{i+1}"
         lines.append(f"• [{st_label}]{label_tag}{marker}")
         btn_label = f"📌{label}" if label else f"#{i+1}"
         btn_text = f"{'✔ ' if current else ''}{st_label} | {btn_label}"
@@ -274,7 +274,11 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     data = query.data
 
     if data.startswith("target:"):
-        handle = int(data.split(":")[1])
+        try:
+            handle = int(data.split(":")[1])
+        except (ValueError, IndexError):
+            await query.edit_message_text("❌ 无效的窗口句柄")
+            return
         title = await asyncio.to_thread(get_window_title, handle)
         if not title:
             await query.edit_message_text("窗口已关闭，请重新 /windows")
@@ -283,7 +287,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         st = detect_claude_state(title)
         st_label = {"thinking": "思考中", "idle": "空闲", "unknown": "未知"}.get(st, "?")
         label = state["window_labels"].get(handle, "")
-        label_tag = f" 📌{label}" if label else ""
+        label_tag = f" 📌{html.escape(label)}" if label else ""
         await query.edit_message_text(
             f"✅ 已切换到: [{st_label}]{label_tag}\nHandle: <code>{handle}</code>",
             parse_mode="HTML",
@@ -296,7 +300,11 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             )
 
     elif data.startswith("label:"):
-        handle = int(data.split(":")[1])
+        try:
+            handle = int(data.split(":")[1])
+        except (ValueError, IndexError):
+            await query.edit_message_text("❌ 无效的窗口句柄")
+            return
         context.user_data["pending_label_handle"] = handle
         await query.edit_message_text(
             f"✏️ 请发送窗口 <code>{handle}</code> 的标签名（如项目名）：",

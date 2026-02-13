@@ -163,7 +163,7 @@ def _make_key_input(vk: int = 0, scan: int = 0, flags: int = 0) -> INPUT:
     inp.union.ki.wScan = scan
     inp.union.ki.dwFlags = flags
     inp.union.ki.time = 0
-    inp.union.ki.dwExtraInfo = ctypes.pointer(ctypes.c_ulong(0))
+    inp.union.ki.dwExtraInfo = None
     return inp
 
 

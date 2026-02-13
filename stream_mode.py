@@ -75,7 +75,12 @@ async def _stream_reader(proc, chat_id: int, context: ContextTypes.DEFAULT_TYPE)
     try:
         while True:
             try:
-                line_bytes = await loop.run_in_executor(None, proc.stdout.readline)
+                line_bytes = await asyncio.wait_for(
+                    loop.run_in_executor(None, proc.stdout.readline), timeout=30
+                )
+            except asyncio.TimeoutError:
+                logger.error("[流式] stdout readline 超时 (30s)，终止读取")
+                break
             except Exception as e:
                 logger.error(f"[流式] stdout 读取异常: {e}")
                 break

@@ -138,9 +138,12 @@ async def _monitor_loop(
                 if last_state != "thinking":
                     queue_text = ""
                     if state["msg_queue"]:
-                        queue_text = "\n📋 " + " → ".join(
-                            f"[{i+1}]{m[:20]}" for i, m in enumerate(state["msg_queue"])
-                        )
+                        items = list(state["msg_queue"])
+                        shown = [f"[{i+1}]{m[:20]}" for i, m in enumerate(items[:5])]
+                        extra = len(items) - 5
+                        queue_text = "\n📋 " + " → ".join(shown)
+                        if extra > 0:
+                            queue_text += f" ... 还有 {extra} 条"
                     await _update_status(chat_id, f"⏳ Claude 思考中...{queue_text}", context)
                 last_state = st
 
@@ -206,9 +209,12 @@ async def _monitor_loop(
                         remaining = len(state["msg_queue"])
                         queue_text = ""
                         if remaining > 0:
-                            queue_text = "\n📋 " + " → ".join(
-                                f"[{i+1}]{m[:20]}" for i, m in enumerate(state["msg_queue"])
-                            )
+                            items = list(state["msg_queue"])
+                            shown = [f"[{i+1}]{m[:20]}" for i, m in enumerate(items[:5])]
+                            extra = remaining - 5
+                            queue_text = "\n📋 " + " → ".join(shown)
+                            if extra > 0:
+                                queue_text += f" ... 还有 {extra} 条"
                         try:
                             state["status_msg"] = await context.bot.send_message(
                                 chat_id=chat_id,
