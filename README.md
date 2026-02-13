@@ -2,72 +2,72 @@
 
 # 🛏️ BedCode
 
-**Remote control Claude Code on Windows via Telegram. Code from your bed.**
+**通过 Telegram 远程控制 Windows 上的 Claude Code。躺在床上写代码。**
 
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-blue.svg?logo=telegram)](https://core.telegram.org/bots)
 
-[English](README.md) | [中文](README_CN.md) | [日本語](README_JP.md)
+[中文](README.md) | [English](README_EN.md) | [日本語](README_JP.md)
 
 </div>
 
 ---
 
-## 🌟 Features
+## 🌟 功能特性
 
 <table>
 <tr>
 <td width="50%">
 
-### 💬 Message Injection
-Send text directly to Claude Code terminal. Supports text, images, voice, files, and auto-saves long messages.
+### 💬 消息注入
+直接向 Claude Code 终端发送文本。支持文本、图片、语音、文件，长消息自动保存。
 
-### 📸 Non-Intrusive Screenshot
-Uses Win32 PrintWindow API. Doesn't activate window or interrupt Claude's workflow.
+### 📸 无干扰截屏
+使用 Win32 PrintWindow API。不激活窗口，不打断 Claude 工作流。
 
-### ⚡ Real-Time Monitoring
-Auto-detects Claude state (thinking/idle) via window title spinner characters. Shows elapsed time.
+### ⚡ 实时监控
+通过窗口标题 spinner 字符自动检测 Claude 状态（思考中/空闲）。显示已用时间。
 
-### 🎯 Quick Reply Buttons
-Auto-generates inline buttons for y/n, numbered options, and ❯ selector prompts.
+### 🎯 快速回复按钮
+自动为 y/n、数字选项、❯ 选择器提示生成内联按钮。
 
-### 📋 Message Queue
-Auto-queues messages while Claude is thinking. Sends sequentially after completion.
+### 📋 消息队列
+Claude 思考时自动排队消息。完成后按顺序发送。
 
-### ⌨️ Key Injection
-Uses SendInput API for arrow keys, enter, numbers, and more.
+### ⌨️ 按键注入
+使用 SendInput API 发送方向键、回车、数字等。
 
 </td>
 <td width="50%">
 
-### 🪟 Multi-Window Management
-Scans all Claude windows with custom persistent labels and screenshot previews.
+### 🪟 多窗口管理
+扫描所有 Claude 窗口，支持自定义持久化标签和截图预览。
 
-### 🖼️ Image Paste (Alt+V)
-Pastes images from Telegram directly into Claude Code via clipboard + Alt+V, just like desktop drag-and-drop.
+### 🖼️ 图片粘贴 (Alt+V)
+通过剪贴板 + Alt+V 将 Telegram 图片直接粘贴到 Claude Code，如同桌面拖放。
 
-### 🎤 Voice Messages
-Transcribes voice messages via OpenAI Whisper API and injects text to Claude Code.
+### 🎤 语音消息
+通过 OpenAI Whisper API 转录语音消息并注入文本到 Claude Code。
 
-### 📄 File Upload
-Send files (.py, .json, .txt, etc.) from Telegram directly to the working directory.
+### 📄 文件上传
+从 Telegram 直接发送文件（.py, .json, .txt 等）到工作目录。
 
-### 🌊 Stream Mode
-Runs `claude -p` subprocess with real-time JSON stream forwarding.
+### 🌊 流式模式
+运行 `claude -p` 子进程，实时转发 JSON 流。
 
-### 📜 Command History
-View and resend last 20 messages with `/history`.
+### 📜 命令历史
+使用 `/history` 查看并重发最近 20 条消息。
 
-### 🐚 Shell Execution
-Execute local shell commands with `!command` prefix.
+### 🐚 Shell 执行
+使用 `!command` 前缀执行本地 shell 命令。
 
-### 🔔 Hook Notification
-Auto-pushes Claude's responses via `notify_hook.py`.
+### 🔔 Hook 通知
+通过 `notify_hook.py` 自动推送 Claude 的响应。
 
-### 🔄 Hot Reload
-Reload `.env` config with `/reload` — no restart needed.
+### 🔄 热重载
+使用 `/reload` 重载 `.env` 配置，无需重启。
 
 </td>
 </tr>
@@ -75,41 +75,41 @@ Reload `.env` config with `/reload` — no restart needed.
 
 ---
 
-## 📷 Screenshots
+## 📷 截图展示
 
 <!-- Add screenshots here -->
 
 ---
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-### 1. Prerequisites
+### 1. 环境要求
 
 - Windows 10/11
-- Python 3.10 or higher
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed
-- Git Bash (for Claude Code on Windows)
+- Python 3.10 或更高版本
+- 已安装 [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- Git Bash（Windows 上的 Claude Code 需要）
 
-### 2. Installation
+### 2. 安装
 
 ```bash
-# Clone the repository
+# 克隆仓库
 git clone https://github.com/cass-2003/Bedcode.git
 cd Bedcode
 
-# Install dependencies
+# 安装依赖
 pip install -r requirements.txt
 ```
 
-### 3. Configuration
+### 3. 配置
 
-Create a `.env` file from the template:
+从模板创建 `.env` 文件：
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your settings:
+编辑 `.env` 填入你的配置：
 
 ```env
 TELEGRAM_BOT_TOKEN=your_bot_token_here
@@ -121,9 +121,9 @@ SHELL_TIMEOUT=30
 CLAUDE_TIMEOUT=300
 ```
 
-### 4. Setup Claude Code Hook (Optional)
+### 4. 设置 Claude Code Hook（可选）
 
-Add to `~/.claude/settings.json`:
+在 `~/.claude/settings.json` 中添加：
 
 ```json
 {
@@ -138,7 +138,7 @@ Add to `~/.claude/settings.json`:
 }
 ```
 
-### 5. Run the Bot
+### 5. 运行 Bot
 
 ```bash
 python bot.py
@@ -146,34 +146,34 @@ python bot.py
 
 ---
 
-## 📖 Commands
+## 📖 命令列表
 
-| Command | Description | Example |
+| 命令 | 说明 | 示例 |
 |---------|-------------|---------|
-| 🏠 `/start` | Show welcome message and available commands | `/start` |
-| 📸 `/screenshot` | Take a screenshot of Claude Code window | `/screenshot` |
-| 📝 `/grab` | Grab current text from Claude Code window | `/grab` |
-| ⌨️ `/key` | Inject keyboard input (arrows, enter, numbers) | `/key down` |
-| 👁️ `/watch` | Start monitoring Claude state (auto-screenshot) | `/watch` |
-| 🛑 `/stop` | Stop monitoring | `/stop` |
-| ⏱️ `/delay` | Set screenshot delay (seconds) | `/delay 2.0` |
-| 🤖 `/auto` | Toggle auto-send mode for queued messages | `/auto on` |
-| 🪟 `/windows` | List all Claude Code windows | `/windows` |
-| ➕ `/new` | Start new Claude Code session in stream mode | `/new` |
-| 📂 `/cd` | Change working directory | `/cd C:\Projects` |
-| 📜 `/history` | View and resend last 20 messages | `/history` |
-| 🔄 `/reload` | Hot-reload `.env` config without restart | `/reload` |
+| 🏠 `/start` | 显示欢迎消息和可用命令 | `/start` |
+| 📸 `/screenshot` | 截取 Claude Code 窗口截图 | `/screenshot` |
+| 📝 `/grab` | 抓取 Claude Code 窗口当前文本 | `/grab` |
+| ⌨️ `/key` | 注入键盘输入（方向键、回车、数字） | `/key down` |
+| 👁️ `/watch` | 开始监控 Claude 状态（自动截图） | `/watch` |
+| 🛑 `/stop` | 停止监控 | `/stop` |
+| ⏱️ `/delay` | 设置截图延迟（秒） | `/delay 2.0` |
+| 🤖 `/auto` | 切换队列消息自动发送模式 | `/auto on` |
+| 🪟 `/windows` | 列出所有 Claude Code 窗口 | `/windows` |
+| ➕ `/new` | 以流式模式启动新的 Claude Code 会话 | `/new` |
+| 📂 `/cd` | 更改工作目录 | `/cd C:\Projects` |
+| 📜 `/history` | 查看并重发最近 20 条消息 | `/history` |
+| 🔄 `/reload` | 热重载 `.env` 配置，无需重启 | `/reload` |
 
-### Special Prefixes
+### 特殊前缀
 
-- `!command` - Execute shell command (e.g., `!dir`, `!git status`)
-- Send images - Pastes into Claude Code via Alt+V clipboard
-- Send voice messages - Transcribed via Whisper API and injected as text
-- Send files (.py, .json, .txt, etc.) - Saved to working directory and path injected
+- `!command` - 执行 shell 命令（例如 `!dir`、`!git status`）
+- 发送图片 - 通过 Alt+V 剪贴板粘贴到 Claude Code
+- 发送语音消息 - 通过 Whisper API 转录后注入文本
+- 发送文件（.py, .json, .txt 等）- 保存到工作目录并注入路径
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ 架构设计
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -185,10 +185,12 @@ python bot.py
 ┌─────────────────────────────────────────────────────────────┐
 │                        bot.py                                │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │   消息处理   │  │   截图捕获   │  │   状态检测   │      │
 │  │   Message    │  │  Screenshot  │  │    State     │      │
 │  │   Handler    │  │   Capture    │  │  Detection   │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │   按键注入   │  │   队列管理   │  │   流式模式   │      │
 │  │     Key      │  │    Queue     │  │    Stream    │      │
 │  │  Injection   │  │  Management  │  │     Mode     │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
@@ -211,141 +213,141 @@ python bot.py
 
 ---
 
-## 🔍 How It Works
+## 🔍 工作原理
 
-### State Detection Mechanism
+### 状态检测机制
 
-BedCode monitors Claude Code's window title to detect its current state:
-
-```
-Window Title Analysis
-│
-├─ Contains Braille chars (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) → Claude is THINKING
-│  └─ Queue messages, wait for completion
-│
-├─ Contains ✳ symbol → Claude is IDLE
-│  └─ Safe to send messages
-│
-└─ Title changed → State transition detected
-   └─ Process queued messages if any
-```
-
-**Flow Diagram:**
+BedCode 通过监控 Claude Code 的窗口标题来检测其当前状态：
 
 ```
-User sends message via Telegram
+窗口标题分析
+│
+├─ 包含盲文字符 (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) → Claude 正在思考
+│  └─ 消息排队，等待完成
+│
+├─ 包含 ✳ 符号 → Claude 空闲
+│  └─ 可以安全发送消息
+│
+└─ 标题改变 → 检测到状态转换
+   └─ 处理队列中的消息
+```
+
+**流程图：**
+
+```
+用户通过 Telegram 发送消息
          │
          ▼
-    Is Claude idle?
+    Claude 是否空闲？
          │
     ┌────┴────┐
     │         │
-   YES       NO
+   是        否
     │         │
-    │         └──► Add to queue
+    │         └──► 添加到队列
     │              │
     │              ▼
-    │         Monitor state
+    │         监控状态
     │              │
     │              ▼
-    │         Claude idle?
+    │         Claude 空闲？
     │              │
-    │             YES
+    │             是
     │              │
     └──────────────┘
          │
          ▼
-   Inject message
+   注入消息
          │
          ▼
-   Take screenshot
+   截取屏幕
          │
          ▼
-   Send to Telegram
+   发送到 Telegram
 ```
 
 ---
 
-## 🔒 Security
+## 🔒 安全说明
 
-> **⚠️ WARNING**
+> **⚠️ 警告**
 >
-> - This bot provides **full control** over your Claude Code instance
-> - Only add **trusted user IDs** to `ALLOWED_USER_IDS`
-> - Keep your `TELEGRAM_BOT_TOKEN` secret
-> - Do not expose your bot token in public repositories
-> - Consider running the bot on a dedicated machine or VM
-> - Review all shell commands before execution
+> - 此 Bot 提供对 Claude Code 实例的**完全控制**
+> - 仅将**可信用户 ID** 添加到 `ALLOWED_USER_IDS`
+> - 保护好你的 `TELEGRAM_BOT_TOKEN`
+> - 不要在公开仓库中暴露 Bot Token
+> - 考虑在专用机器或虚拟机上运行 Bot
+> - 执行前检查所有 shell 命令
 
 ---
 
-## 📁 Project Structure
+## 📁 项目结构
 
 ```
 Bedcode/
-├── bot.py              # Entry point: app builder, signal handling
-├── config.py           # Config loading, logging, global state, constants
-├── win32_api.py        # Win32 screenshot, key injection, clipboard, window ops
-├── claude_detect.py    # State detection, window scanning, terminal text reading
-├── monitor.py          # Monitor loop, interactive prompt detection, status messages
-├── stream_mode.py      # Git Bash detection, subprocess management, stream reader
-├── handlers.py         # All Telegram command/callback/message handlers
-├── utils.py            # Text splitting, result sending, file saving, path persistence
-├── notify_hook.py      # Claude Code hook for response notifications
-├── requirements.txt    # Python dependencies
-├── .env.example        # Configuration template
-├── README.md           # English documentation
-├── README_CN.md        # Chinese documentation
-└── README_JP.md        # Japanese documentation
+├── bot.py              # 入口：应用构建、信号处理
+├── config.py           # 配置加载、日志、全局状态、常量
+├── win32_api.py        # Win32 截屏、按键注入、剪贴板、窗口操作
+├── claude_detect.py    # 状态检测、窗口扫描、终端文本读取
+├── monitor.py          # 监控循环、交互提示检测、状态消息
+├── stream_mode.py      # Git Bash 检测、子进程管理、流式读取
+├── handlers.py         # 所有 Telegram 命令/回调/消息处理
+├── utils.py            # 文本分割、结果发送、文件保存、路径持久化
+├── notify_hook.py      # Claude Code hook 响应通知
+├── requirements.txt    # Python 依赖
+├── .env.example        # 配置模板
+├── README.md           # 中文文档（默认）
+├── README_EN.md        # 英文文档
+└── README_JP.md        # 日文文档
 ```
 
 ---
 
-## 🛠️ Configuration Reference
+## 🛠️ 配置参考
 
-### Environment Variables
+### 环境变量
 
-| Variable | Description | Default | Required |
+| 变量 | 说明 | 默认值 | 必需 |
 |----------|-------------|---------|----------|
-| `TELEGRAM_BOT_TOKEN` | Your Telegram bot token from @BotFather | - | ✅ |
-| `ALLOWED_USER_IDS` | Comma-separated list of allowed Telegram user IDs | - | ✅ |
-| `WORK_DIR` | Default working directory for Claude Code | Current dir | ❌ |
-| `GIT_BASH_PATH` | Path to Git Bash executable | `C:\Program Files\Git\bin\bash.exe` | ❌ |
-| `SCREENSHOT_DELAY` | Delay between screenshots in watch mode (seconds) | `1.5` | ❌ |
-| `SHELL_TIMEOUT` | Timeout for shell commands (seconds) | `30` | ❌ |
-| `CLAUDE_TIMEOUT` | Timeout for Claude operations (seconds) | `300` | ❌ |
-| `OPENAI_API_KEY` | OpenAI API key for voice message transcription (Whisper) | - | ❌ |
-| `ANTHROPIC_API_KEY` | Anthropic API key for image analysis (Vision API fallback) | - | ❌ |
+| `TELEGRAM_BOT_TOKEN` | 从 @BotFather 获取的 Telegram Bot Token | - | ✅ |
+| `ALLOWED_USER_IDS` | 允许的 Telegram 用户 ID（逗号分隔） | - | ✅ |
+| `WORK_DIR` | Claude Code 的默认工作目录 | 当前目录 | ❌ |
+| `GIT_BASH_PATH` | Git Bash 可执行文件路径 | `C:\Program Files\Git\bin\bash.exe` | ❌ |
+| `SCREENSHOT_DELAY` | 监控模式下截图间隔（秒） | `1.5` | ❌ |
+| `SHELL_TIMEOUT` | Shell 命令超时（秒） | `30` | ❌ |
+| `CLAUDE_TIMEOUT` | Claude 操作超时（秒） | `300` | ❌ |
+| `OPENAI_API_KEY` | OpenAI API 密钥，用于语音消息转录（Whisper） | - | ❌ |
+| `ANTHROPIC_API_KEY` | Anthropic API 密钥，用于图片分析（Vision API 备选） | - | ❌ |
 
 ---
 
-## 🤝 Contributing
+## 🤝 贡献
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+欢迎贡献！请随时提交 Pull Request。对于重大更改，请先开 issue 讨论你想要改变的内容。
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+1. Fork 本仓库
+2. 创建你的特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交你的更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启一个 Pull Request
 
 ---
 
-## 🙏 Acknowledgments
+## 📝 许可证
 
-- [Anthropic](https://www.anthropic.com/) for Claude Code
-- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) for the excellent Telegram Bot framework
-- [pywinauto](https://github.com/pywinauto/pywinauto) for Windows UI automation
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
 
 ---
 
-## ⭐ Star History
+## 🙏 致谢
+
+- [Anthropic](https://www.anthropic.com/) 提供 Claude Code
+- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) 提供优秀的 Telegram Bot 框架
+- [pywinauto](https://github.com/pywinauto/pywinauto) 提供 Windows UI 自动化
+
+---
+
+## ⭐ Star 历史
 
 [![Star History Chart](https://api.star-history.com/svg?repos=cass-2003/Bedcode&type=Date)](https://star-history.com/#cass-2003/Bedcode&Date)
 
@@ -353,8 +355,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Made with ❤️ for lazy developers who code from bed**
+**用 ❤️ 为躺在床上写代码的懒惰开发者打造**
 
-[Report Bug](https://github.com/cass-2003/Bedcode/issues) · [Request Feature](https://github.com/cass-2003/Bedcode/issues)
+[报告 Bug](https://github.com/cass-2003/Bedcode/issues) · [请求功能](https://github.com/cass-2003/Bedcode/issues)
 
 </div>

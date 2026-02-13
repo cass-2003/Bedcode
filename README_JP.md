@@ -9,7 +9,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-blue.svg?logo=telegram)](https://core.telegram.org/bots)
 
-[English](README.md) | [中文](README_CN.md) | [日本語](README_JP.md)
+[中文](README.md) | [English](README_EN.md) | [日本語](README_JP.md)
 
 </div>
 
@@ -294,8 +294,8 @@ Bedcode/
 ├── notify_hook.py      # Claude Code応答通知用hook
 ├── requirements.txt    # Python依存関係
 ├── .env.example        # 設定テンプレート
-├── README.md           # 英語ドキュメント
-├── README_CN.md        # 中国語ドキュメント
+├── README.md           # 中国語ドキュメント（デフォルト）
+├── README_EN.md        # 英語ドキュメント
 └── README_JP.md        # 日本語ドキュメント
 ```
 
