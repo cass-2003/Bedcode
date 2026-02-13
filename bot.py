@@ -20,8 +20,9 @@ from handlers import (
     auth_gate,
     cmd_start, cmd_screenshot, cmd_grab, cmd_key,
     cmd_watch, cmd_stop, cmd_delay, cmd_auto,
-    cmd_windows, cmd_new, cmd_cd,
+    cmd_windows, cmd_new, cmd_cd, cmd_history,
     callback_handler, handle_message, handle_photo,
+    handle_voice, handle_document,
 )
 
 # 加载持久化标签
@@ -88,10 +89,13 @@ def main() -> None:
     app.add_handler(CommandHandler("windows", cmd_windows))
     app.add_handler(CommandHandler("new", cmd_new))
     app.add_handler(CommandHandler("cd", cmd_cd))
+    app.add_handler(CommandHandler("history", cmd_history))
     app.add_handler(CallbackQueryHandler(callback_handler))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
     app.run_polling(
         allowed_updates=Update.ALL_TYPES,

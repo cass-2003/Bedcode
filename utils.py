@@ -3,6 +3,7 @@ import os
 import json
 import time
 import html
+import asyncio
 import logging
 from pathlib import Path
 
@@ -43,29 +44,35 @@ def split_text(text: str, max_len: int = 4000) -> list[str]:
 async def send_result(chat_id: int, text: str, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not text.strip():
         text = "(空输出)"
-    safe = html.escape(text)
-    chunks = split_text(safe)
+    chunks = split_text(text)
     for i, chunk in enumerate(chunks):
-        prefix = f"<b>[{i+1}/{len(chunks)}]</b>\n" if len(chunks) > 1 else ""
+        md_prefix = f"**[{i+1}/{len(chunks)}]**\n" if len(chunks) > 1 else ""
+        html_prefix = f"<b>[{i+1}/{len(chunks)}]</b>\n" if len(chunks) > 1 else ""
         try:
             await context.bot.send_message(
-                chat_id=chat_id, text=f"{prefix}<pre>{chunk}</pre>", parse_mode="HTML",
+                chat_id=chat_id, text=f"{md_prefix}{chunk}", parse_mode="Markdown",
             )
         except Exception:
+            safe = html.escape(chunk)
             try:
-                await context.bot.send_message(chat_id=chat_id, text=f"{prefix}{chunk}")
+                await context.bot.send_message(
+                    chat_id=chat_id, text=f"{html_prefix}<pre>{safe}</pre>", parse_mode="HTML",
+                )
             except Exception:
-                pass
+                try:
+                    await context.bot.send_message(chat_id=chat_id, text=f"{html_prefix}{chunk}")
+                except Exception:
+                    pass
 
 
-def _get_handle() -> int | None:
+async def _get_handle() -> int | None:
     handle = state["target_handle"]
     if handle:
-        title = get_window_title(handle)
+        title = await asyncio.to_thread(get_window_title, handle)
         if title:
             return handle
         state["target_handle"] = None
-    windows = find_claude_windows()
+    windows = await asyncio.to_thread(find_claude_windows)
     if windows:
         state["target_handle"] = windows[0]["handle"]
         return windows[0]["handle"]

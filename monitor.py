@@ -19,6 +19,11 @@ from utils import send_result
 logger = logging.getLogger("bedcode")
 
 
+def _fmt_elapsed(start: float) -> str:
+    s = int(time.time() - start)
+    return f"{s // 60}m {s % 60}s" if s >= 60 else f"{s}s"
+
+
 def _detect_interactive_prompt(text: str) -> str | None:
     if not text:
         return None
@@ -94,7 +99,7 @@ async def _monitor_loop(
             was_thinking = True
             last_state = "thinking"
             grace_period = 0
-            await _update_status(chat_id, "⏳ Claude 思考中...", context)
+            await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)})", context)
 
         while True:
             await asyncio.sleep(1.5)
@@ -113,7 +118,7 @@ async def _monitor_loop(
                     was_thinking = True
                     grace_period = 0
                     last_state = "thinking"
-                    await _update_status(chat_id, "⏳ Claude 思考中...", context)
+                    await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)})", context)
                 elif grace_period == 0:
                     img_data = await asyncio.to_thread(capture_window_screenshot, handle)
                     if img_data:
@@ -144,7 +149,7 @@ async def _monitor_loop(
                         queue_text = "\n📋 " + " → ".join(shown)
                         if extra > 0:
                             queue_text += f" ... 还有 {extra} 条"
-                    await _update_status(chat_id, f"⏳ Claude 思考中...{queue_text}", context)
+                    await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)}){queue_text}", context)
                 last_state = st
 
                 text = await asyncio.to_thread(read_terminal_text, handle)
@@ -187,7 +192,7 @@ async def _monitor_loop(
                         was_thinking = True
                         idle_count = 0
                         last_state = "thinking"
-                        await _update_status(chat_id, "⏳ Claude 继续执行中...", context)
+                        await _update_status(chat_id, f"⏳ Claude 继续执行中... ({_fmt_elapsed(start_time)})", context)
                         continue
 
                     await _delete_status()
@@ -201,6 +206,8 @@ async def _monitor_loop(
                             pass
 
                     term_text = await asyncio.to_thread(read_last_transcript_response)
+                    if not term_text or len(term_text.strip()) <= 10:
+                        term_text = await asyncio.to_thread(read_terminal_text, handle)
                     if term_text and len(term_text.strip()) > 10:
                         await send_result(chat_id, term_text, context)
 

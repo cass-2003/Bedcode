@@ -16,6 +16,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
+import config
 from config import (
     state, ALLOWED_USERS, SHELL_TIMEOUT, REPLY_KEYBOARD,
 )
@@ -37,6 +38,14 @@ from utils import (
 )
 
 logger = logging.getLogger("bedcode")
+
+VOICE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "voices")
+os.makedirs(VOICE_DIR, exist_ok=True)
+
+SUPPORTED_DOC_EXTS = {
+    ".py", ".js", ".ts", ".json", ".yaml", ".yml", ".toml", ".txt", ".md",
+    ".csv", ".html", ".css", ".sh", ".bat", ".env", ".cfg", ".ini", ".xml",
+}
 
 
 # ── Auth ──────────────────────────────────────────────────────────
@@ -82,7 +91,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    handle = _get_handle()
+    handle = await _get_handle()
     if not handle:
         await update.message.reply_text("未找到窗口，先 /windows")
         return
@@ -94,7 +103,7 @@ async def cmd_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def cmd_grab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    handle = _get_handle()
+    handle = await _get_handle()
     if not handle:
         await update.message.reply_text("未找到窗口，先 /windows")
         return
@@ -146,7 +155,7 @@ async def cmd_key(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode="HTML",
         )
         return
-    handle = _get_handle()
+    handle = await _get_handle()
     if not handle:
         await update.message.reply_text("未锁定窗口，先 /windows")
         return
@@ -170,7 +179,7 @@ async def _quick_screenshot(handle: int, chat_id: int, context: ContextTypes.DEF
 
 
 async def cmd_watch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    handle = _get_handle()
+    handle = await _get_handle()
     if not handle:
         await update.message.reply_text("未找到窗口，先 /windows")
         return
@@ -267,6 +276,23 @@ async def cmd_cd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"不存在: <code>{html.escape(target)}</code>", parse_mode="HTML")
 
 
+async def cmd_reload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    config.SCREENSHOT_DELAY = int(os.environ.get("SCREENSHOT_DELAY", "15"))
+    config.SHELL_TIMEOUT = int(os.environ.get("SHELL_TIMEOUT", "120"))
+    config.WORK_DIR = os.environ.get("WORK_DIR", str(os.path.expanduser("~")))
+    state["screenshot_interval"] = config.SCREENSHOT_DELAY
+    state["cwd"] = config.WORK_DIR
+    await update.message.reply_text(
+        f"<b>配置已重载</b>\n"
+        f"SCREENSHOT_DELAY={config.SCREENSHOT_DELAY}\n"
+        f"SHELL_TIMEOUT={config.SHELL_TIMEOUT}\n"
+        f"WORK_DIR={config.WORK_DIR}",
+        parse_mode="HTML",
+    )
+
+
 # ── 回调处理 ──────────────────────────────────────────────────────
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -313,7 +339,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     elif data.startswith("qr:"):
         keys = data[3:]
-        handle = _get_handle()
+        handle = await _get_handle()
         if not handle:
             await query.edit_message_text("❌ 窗口已关闭")
             return
@@ -387,7 +413,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     elif data == "monitor:waiting":
         await query.edit_message_text("🔘 Claude 等待选择，请用 /key 发送按键")
-        handle = _get_handle()
+        handle = await _get_handle()
         if handle:
             img_data = await asyncio.to_thread(capture_window_screenshot, handle)
             if img_data:
@@ -395,6 +421,20 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     await context.bot.send_photo(chat_id=query.message.chat_id, photo=img_data)
                 except Exception:
                     pass
+
+    elif data.startswith("resend:"):
+        try:
+            idx = int(data.split(":")[1])
+            history = list(state["cmd_history"])
+            if 0 <= idx < len(history):
+                text = history[idx]
+                await query.edit_message_text(f"🔁 重发: {text[:80]}")
+                state["cmd_history"].append(text)
+                await _inject_to_claude(update, context, text)
+            else:
+                await query.edit_message_text("❌ 历史记录已过期")
+        except (ValueError, IndexError):
+            await query.edit_message_text("❌ 无效的历史索引")
 
 
 # ── 启动新实例 ────────────────────────────────────────────────────
@@ -449,7 +489,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await file.download_to_drive(filepath)
     logger.info(f"图片已保存: {filepath}")
 
-    handle = _get_handle()
+    handle = await _get_handle()
 
     # 尝试 Alt+V 粘贴图片到 Claude Code 窗口
     if handle and not state.get("stream_mode"):
@@ -518,14 +558,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     if state["stream_mode"]:
+        state["cmd_history"].append(text)
         await _stream_send(text, update.effective_chat.id, context)
         return
 
+    state["cmd_history"].append(text)
     await _inject_to_claude(update, context, text)
 
 
 async def _inject_to_claude(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, skip_file_check: bool = False) -> None:
-    handle = _get_handle()
+    handle = await _get_handle()
     if not handle:
         await update.message.reply_text("未找到 Claude Code 窗口!\n请先启动 Claude Code，然后 /windows")
         return
@@ -603,3 +645,74 @@ async def _run_shell(update: Update, context: ContextTypes.DEFAULT_TYPE, cmd: st
         await thinking.edit_text(f"超时 ({SHELL_TIMEOUT}s)")
     except Exception as e:
         await thinking.edit_text(f"出错: {html.escape(str(e))}", parse_mode="HTML")
+
+
+# ── 语音消息处理 ──────────────────────────────────────────────────
+async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    voice = update.message.voice
+    file = await context.bot.get_file(voice.file_id)
+    ts = int(time.time())
+    filename = f"voice_{ts}_{voice.file_unique_id}.ogg"
+    filepath = os.path.join(VOICE_DIR, filename)
+    await file.download_to_drive(filepath)
+    logger.info(f"语音已保存: {filepath}")
+
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if api_key:
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            with open(filepath, "rb") as audio_file:
+                transcription = await asyncio.to_thread(
+                    lambda: client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+                )
+            text = transcription.text.strip()
+            await update.message.reply_text(f"🎤 识别结果: {text}")
+            state["cmd_history"].append(text)
+            await _inject_to_claude(update, context, text)
+        except Exception as e:
+            logger.exception(f"Whisper 转写失败: {e}")
+            await update.message.reply_text(f"⚠️ 语音转写失败: {e}")
+            inject_text = f"用户发送了语音消息，文件路径: {filepath}"
+            await _inject_to_claude(update, context, inject_text, skip_file_check=True)
+    else:
+        await update.message.reply_text("⚠️ 未配置 OPENAI_API_KEY，语音转文字不可用")
+        inject_text = f"用户发送了语音消息，文件路径: {filepath}"
+        await _inject_to_claude(update, context, inject_text, skip_file_check=True)
+
+
+# ── 文件/文档处理 ─────────────────────────────────────────────────
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    doc = update.message.document
+    ext = os.path.splitext(doc.file_name or "")[1].lower()
+    if ext not in SUPPORTED_DOC_EXTS:
+        await update.message.reply_text(f"⚠️ 不支持的文件类型: {ext}")
+        return
+    file = await context.bot.get_file(doc.file_id)
+    filepath = os.path.join(state["cwd"], doc.file_name)
+    await file.download_to_drive(filepath)
+    logger.info(f"文件已保存: {filepath}")
+    caption = (update.message.caption or "").strip() or "请查看这个文件"
+    await update.message.reply_text(f"📄 文件已保存: {doc.file_name}")
+    await _inject_to_claude(update, context, f"{caption} {filepath}", skip_file_check=True)
+
+
+# ── 命令历史 ─────────────────────────────────────────────────────
+async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    history = list(state["cmd_history"])
+    if not history:
+        await update.message.reply_text("📜 暂无历史记录")
+        return
+    lines = []
+    buttons = []
+    for i, msg in enumerate(history):
+        lines.append(f"{i+1}. {html.escape(msg[:60])}{'...' if len(msg) > 60 else ''}")
+        buttons.append([InlineKeyboardButton(
+            f"{i+1}. {msg[:40]}{'...' if len(msg) > 40 else ''}",
+            callback_data=f"resend:{i}",
+        )])
+    await update.message.reply_text(
+        f"📜 最近 {len(history)} 条消息：\n" + "\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )

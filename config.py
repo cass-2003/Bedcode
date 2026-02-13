@@ -1,6 +1,7 @@
 """BedCode 配置、日志、全局状态。"""
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 from collections import deque
 from pathlib import Path
 
@@ -44,7 +45,7 @@ logging.basicConfig(
     level=logging.INFO,
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(os.path.join(_BASE_DIR, "bot.log"), encoding="utf-8"),
+        RotatingFileHandler(os.path.join(_BASE_DIR, "bot.log"), maxBytes=5*1024*1024, backupCount=3, encoding="utf-8"),
     ],
 )
 logger = logging.getLogger("bedcode")
@@ -62,6 +63,7 @@ BOT_COMMANDS = [
     BotCommand("windows", "扫描窗口并选择目标"),
     BotCommand("new", "启动新 Claude Code 实例"),
     BotCommand("cd", "切换 Shell 工作目录"),
+    BotCommand("history", "查看最近20条消息历史"),
 ]
 
 # ── 常驻按钮面板 ─────────────────────────────────────────────────
@@ -93,4 +95,5 @@ state = {
     "stream_mode": False,
     "window_labels": {},
     "last_screenshot_hash": None,
+    "cmd_history": deque(maxlen=20),
 }
