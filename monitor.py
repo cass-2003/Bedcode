@@ -139,16 +139,15 @@ async def _monitor_loop(
             if st == "thinking":
                 was_thinking = True
                 idle_count = 0
-                if last_state != "thinking":
-                    queue_text = ""
-                    if state["msg_queue"]:
-                        items = list(state["msg_queue"])
-                        shown = [f"[{i+1}]{m[:20]}" for i, m in enumerate(items[:5])]
-                        extra = len(items) - 5
-                        queue_text = "\n📋 " + " → ".join(shown)
-                        if extra > 0:
-                            queue_text += f" ... 还有 {extra} 条"
-                    await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)}){queue_text}", context)
+                queue_text = ""
+                if state["msg_queue"]:
+                    items = list(state["msg_queue"])
+                    shown = [f"[{i+1}]{m[:20]}" for i, m in enumerate(items[:5])]
+                    extra = len(items) - 5
+                    queue_text = "\n📋 " + " → ".join(shown)
+                    if extra > 0:
+                        queue_text += f" ... 还有 {extra} 条"
+                await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)}){queue_text}", context)
                 last_state = st
 
                 text = await asyncio.to_thread(read_terminal_text, handle)
@@ -302,6 +301,8 @@ async def _passive_monitor_loop(app) -> None:
     """常驻后台监控：检测本地操作导致的 thinking→idle 转换，自动转发结果到 Telegram。"""
     was_thinking = False
     idle_count = 0
+    think_start = None
+    status_msg = None
 
     while True:
         try:
@@ -317,6 +318,12 @@ async def _passive_monitor_loop(app) -> None:
             if active_task and not active_task.done():
                 was_thinking = False
                 idle_count = 0
+                # 清理状态消息
+                if status_msg:
+                    try: await status_msg.delete()
+                    except Exception: pass
+                    status_msg = None
+                    think_start = None
                 continue
 
             title = await asyncio.to_thread(get_window_title, handle)
@@ -326,8 +333,22 @@ async def _passive_monitor_loop(app) -> None:
             st = detect_claude_state(title)
 
             if st == "thinking":
-                was_thinking = True
                 idle_count = 0
+                if not was_thinking:
+                    was_thinking = True
+                    think_start = time.time()
+                    try:
+                        status_msg = await app.bot.send_message(
+                            chat_id=chat_id, text="🧠 Claude 思考中... (0s)")
+                    except Exception:
+                        status_msg = None
+                elif status_msg and think_start:
+                    elapsed = int(time.time() - think_start)
+                    text = f"🧠 Claude 思考中... ({_fmt_elapsed(think_start)})"
+                    try:
+                        await status_msg.edit_text(text)
+                    except Exception:
+                        pass
             elif st == "idle" and was_thinking:
                 idle_count += 1
                 if idle_count >= 2:
@@ -336,6 +357,13 @@ async def _passive_monitor_loop(app) -> None:
                     if detect_claude_state(title2) == "thinking":
                         idle_count = 0
                         continue
+
+                    # 删除思考状态消息
+                    if status_msg:
+                        try: await status_msg.delete()
+                        except Exception: pass
+                        status_msg = None
+                        think_start = None
 
                     logger.info("[被动监控] 检测到本地操作完成，转发结果")
 
