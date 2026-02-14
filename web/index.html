@@ -284,15 +284,21 @@ function logMsg(text, dir='sent') {
   _renderMsgLog();
 }
 
-// ── Auto refresh ──
+// ── Auto refresh (always-on, adaptive interval) ──
 let _refreshTimer = null;
 let _lastHash = '';
+let _pollInterval = 10000;
 
 async function autoRefreshTick() {
   const r = await api('/status');
   if (!r) return;
   updateHeader(r);
-  // 截图刷新
+  const newInterval = r.state === 'thinking' ? 3000 : 10000;
+  if (newInterval !== _pollInterval) {
+    _pollInterval = newInterval;
+    clearInterval(_refreshTimer);
+    _refreshTimer = setInterval(autoRefreshTick, _pollInterval);
+  }
   const resp = await fetch(API + '/api/screenshot', {headers: headers()});
   if (resp.ok) {
     const blob = await resp.blob();
@@ -302,22 +308,11 @@ async function autoRefreshTick() {
       showImage(URL.createObjectURL(blob));
     }
   }
-  // thinking 状态持续刷新，idle 时停止
-  if (r.state !== 'thinking') {
-    stopAutoRefresh();
-    // 最后抓一次终端文本
-    const g = await api('/grab');
-    if (g?.text) {
-      const panel = document.getElementById('text-panel');
-      panel.textContent = g.text;
-      panel.classList.add('open');
-    }
-  }
 }
 
 function startAutoRefresh() {
   if (_refreshTimer) return;
-  _refreshTimer = setInterval(autoRefreshTick, 3000);
+  _refreshTimer = setInterval(autoRefreshTick, _pollInterval);
   autoRefreshTick();
 }
 
@@ -337,10 +332,8 @@ document.getElementById('msg-input').addEventListener('keydown', e => {
 connectWS();
 _renderMsgLog();
 doRefresh().then(() => {
-  // 初始加载截图
   doScreenshot();
-  // 如果当前是 thinking，自动开始轮询
-  api('/status').then(r => { if (r?.state === 'thinking') startAutoRefresh(); });
+  startAutoRefresh();
 });
 
 // PWA service worker
