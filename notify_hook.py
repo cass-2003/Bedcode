@@ -70,25 +70,25 @@ def read_last_response(transcript_path: str) -> str:
         return ""
     try:
         with open(transcript_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            lines = f.readlines()
     except Exception:
         return ""
-
-    # transcript 可能是列表或含 messages 键的字典
-    messages = data if isinstance(data, list) else data.get("messages", [])
-
-    # 从后往前找最后一条 assistant 消息
-    for msg in reversed(messages):
-        if msg.get("role") == "assistant":
-            content = msg.get("content", "")
-            if isinstance(content, list):
-                # content 可能是 [{type: "text", text: "..."}, ...] 格式
-                parts = []
-                for item in content:
-                    if isinstance(item, dict) and item.get("type") == "text":
-                        parts.append(item.get("text", ""))
-                return "\n".join(parts)
-            return str(content)
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            msg = json.loads(line)
+        except Exception:
+            continue
+        m = msg.get("message", {})
+        if m.get("role") != "assistant":
+            continue
+        content = m.get("content", "")
+        if isinstance(content, list):
+            parts = [item.get("text", "") for item in content if isinstance(item, dict) and item.get("type") == "text"]
+            return "\n".join(parts)
+        return str(content)
     return ""
 
 

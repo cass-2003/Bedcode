@@ -24,6 +24,18 @@ def _fmt_elapsed(start: float) -> str:
     return f"{s // 60}m {s % 60}s" if s >= 60 else f"{s}s"
 
 
+def _build_queue_text() -> str:
+    if not state["msg_queue"]:
+        return ""
+    items = list(state["msg_queue"])
+    shown = [f"[{i+1}]{m[:20]}" for i, m in enumerate(items[:5])]
+    extra = len(items) - 5
+    text = "\n📋 " + " → ".join(shown)
+    if extra > 0:
+        text += f" ... 还有 {extra} 条"
+    return text
+
+
 def _detect_interactive_prompt(text: str) -> str | None:
     if not text:
         return None
@@ -78,6 +90,23 @@ async def _delete_status() -> None:
         except Exception:
             pass
         state["status_msg"] = None
+
+
+async def _forward_result(chat_id: int, handle: int, ctx) -> None:
+    """截图+文本转发到 Telegram。ctx 可以是 ContextTypes 或 Application。"""
+    bot = ctx.bot if hasattr(ctx, 'bot') else ctx
+    state["last_screenshot_hash"] = None
+    img_data = await asyncio.to_thread(capture_window_screenshot, handle)
+    if img_data:
+        try:
+            await bot.send_photo(chat_id=chat_id, photo=img_data)
+        except Exception:
+            pass
+    term_text = await asyncio.to_thread(read_last_transcript_response)
+    if not term_text or len(term_text.strip()) <= 10:
+        term_text = await asyncio.to_thread(read_terminal_text, handle)
+    if term_text and len(term_text.strip()) > 10:
+        await send_result(chat_id, term_text, ctx)
 
 
 async def _monitor_loop(
@@ -139,15 +168,7 @@ async def _monitor_loop(
             if st == "thinking":
                 was_thinking = True
                 idle_count = 0
-                queue_text = ""
-                if state["msg_queue"]:
-                    items = list(state["msg_queue"])
-                    shown = [f"[{i+1}]{m[:20]}" for i, m in enumerate(items[:5])]
-                    extra = len(items) - 5
-                    queue_text = "\n📋 " + " → ".join(shown)
-                    if extra > 0:
-                        queue_text += f" ... 还有 {extra} 条"
-                await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)}){queue_text}", context)
+                await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)}){_build_queue_text()}", context)
                 last_state = st
 
                 text = await asyncio.to_thread(read_terminal_text, handle)
@@ -195,35 +216,14 @@ async def _monitor_loop(
 
                     await _delete_status()
 
-                    state["last_screenshot_hash"] = None
-                    img_data = await asyncio.to_thread(capture_window_screenshot, handle)
-                    if img_data:
-                        try:
-                            await context.bot.send_photo(chat_id=chat_id, photo=img_data)
-                        except Exception:
-                            pass
-
-                    term_text = await asyncio.to_thread(read_last_transcript_response)
-                    if not term_text or len(term_text.strip()) <= 10:
-                        term_text = await asyncio.to_thread(read_terminal_text, handle)
-                    if term_text and len(term_text.strip()) > 10:
-                        await send_result(chat_id, term_text, context)
+                    await _forward_result(chat_id, handle, context)
 
                     if state["msg_queue"]:
                         next_msg = state["msg_queue"].popleft()
-                        remaining = len(state["msg_queue"])
-                        queue_text = ""
-                        if remaining > 0:
-                            items = list(state["msg_queue"])
-                            shown = [f"[{i+1}]{m[:20]}" for i, m in enumerate(items[:5])]
-                            extra = remaining - 5
-                            queue_text = "\n📋 " + " → ".join(shown)
-                            if extra > 0:
-                                queue_text += f" ... 还有 {extra} 条"
                         try:
                             state["status_msg"] = await context.bot.send_message(
                                 chat_id=chat_id,
-                                text=f"📤 发送队列消息:\n{next_msg[:100]}{queue_text}",
+                                text=f"📤 发送队列消息:\n{next_msg[:100]}{_build_queue_text()}",
                             )
                         except Exception:
                             pass
@@ -367,19 +367,7 @@ async def _passive_monitor_loop(app) -> None:
 
                     logger.info("[被动监控] 检测到本地操作完成，转发结果")
 
-                    state["last_screenshot_hash"] = None
-                    img_data = await asyncio.to_thread(capture_window_screenshot, handle)
-                    if img_data:
-                        try:
-                            await app.bot.send_photo(chat_id=chat_id, photo=img_data)
-                        except Exception:
-                            pass
-
-                    term_text = await asyncio.to_thread(read_last_transcript_response)
-                    if not term_text or len(term_text.strip()) <= 10:
-                        term_text = await asyncio.to_thread(read_terminal_text, handle)
-                    if term_text and len(term_text.strip()) > 10:
-                        await send_result(chat_id, term_text, app)
+                    await _forward_result(chat_id, handle, app)
 
                     was_thinking = False
                     idle_count = 0

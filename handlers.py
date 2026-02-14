@@ -623,6 +623,11 @@ async def _inject_to_claude(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 
 async def _run_shell(update: Update, context: ContextTypes.DEFAULT_TYPE, cmd: str) -> None:
+    DANGEROUS_PATTERNS = {"rm -rf /", "mkfs", "dd if=", ":(){ :|:&", "fork bomb", "> /dev/sd"}
+    cmd_lower = cmd.lower().strip()
+    if any(p in cmd_lower for p in DANGEROUS_PATTERNS):
+        await update.message.reply_text("⚠️ 危险命令已拦截")
+        return
     thinking = await update.message.reply_text(
         f"执行: <code>{html.escape(cmd[:80])}</code>", parse_mode="HTML"
     )
@@ -692,7 +697,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text(f"⚠️ 不支持的文件类型: {ext}")
         return
     file = await context.bot.get_file(doc.file_id)
-    filepath = os.path.join(state["cwd"], os.path.basename(doc.file_name))
+    safe_name = os.path.basename(doc.file_name or "upload").replace("..", "").strip()
+    if not safe_name:
+        safe_name = "upload"
+    filepath = os.path.join(state["cwd"], safe_name)
     await file.download_to_drive(filepath)
     logger.info(f"文件已保存: {filepath}")
     caption = (update.message.caption or "").strip() or "请查看这个文件"
