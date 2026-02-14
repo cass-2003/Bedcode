@@ -83,7 +83,6 @@ async def _delete_status() -> None:
 async def _monitor_loop(
     handle: int, chat_id: int, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    interval = state["screenshot_interval"]
     max_duration = 3600
     start_time = time.time()
     last_screenshot_time = 0
@@ -263,7 +262,7 @@ async def _monitor_loop(
                 idle_count = 0
 
             now = time.time()
-            if now - last_screenshot_time >= interval:
+            if now - last_screenshot_time >= state["screenshot_interval"]:
                 last_screenshot_time = now
                 img_data = await asyncio.to_thread(capture_window_screenshot, handle)
                 if img_data:
@@ -279,6 +278,10 @@ async def _monitor_loop(
         await _delete_status()
     except Exception as e:
         logger.error(f"监控循环异常: {e}")
+        try:
+            await context.bot.send_message(chat_id=state.get("chat_id"), text="⚠️ 监控异常已停止，请检查日志")
+        except Exception:
+            pass
 
 
 def _cancel_monitor():

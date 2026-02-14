@@ -87,7 +87,7 @@ async def _stream_reader(proc, chat_id: int, context: ContextTypes.DEFAULT_TYPE)
             if not line_bytes:
                 logger.info(f"[流式] stdout EOF, 共读取 {line_count} 行")
                 try:
-                    stderr_out = proc.stderr.read()
+                    stderr_out = await loop.run_in_executor(None, proc.stderr.read)
                     if stderr_out:
                         stderr_text = stderr_out.decode("utf-8", errors="replace").strip()
                         logger.error(f"[流式] stderr: {stderr_text[:500]}")
@@ -186,10 +186,10 @@ async def _stream_send(text: str, chat_id: int, context: ContextTypes.DEFAULT_TY
         "claude.cmd", "-p",
         "--output-format", "stream-json",
         "--verbose",
-        "--dangerously-skip-permissions",
-        "--add-dir", state["cwd"],
-        text,
     ]
+    if os.environ.get("CLAUDE_SKIP_PERMISSIONS", "true").lower() in ("true", "1", "yes"):
+        cmd.append("--dangerously-skip-permissions")
+    cmd += ["--add-dir", state["cwd"], text]
     logger.info(f"[流式] 命令: {' '.join(cmd[:7])} ...")
 
     try:

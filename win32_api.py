@@ -94,25 +94,26 @@ def capture_window_screenshot(handle: int) -> bytes | None:
             bitmap = gdi32.CreateCompatibleBitmap(wnd_dc, width, height)
             old_bmp = gdi32.SelectObject(mem_dc, bitmap)
 
-            result = user32.PrintWindow(handle, mem_dc, PW_RENDERFULLCONTENT)
-            if not result:
-                result = user32.PrintWindow(handle, mem_dc, 0)
+            try:
+                result = user32.PrintWindow(handle, mem_dc, PW_RENDERFULLCONTENT)
+                if not result:
+                    result = user32.PrintWindow(handle, mem_dc, 0)
 
-            bmi = BITMAPINFO()
-            bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-            bmi.bmiHeader.biWidth = width
-            bmi.bmiHeader.biHeight = -height
-            bmi.bmiHeader.biPlanes = 1
-            bmi.bmiHeader.biBitCount = 32
-            bmi.bmiHeader.biCompression = BI_RGB
+                bmi = BITMAPINFO()
+                bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+                bmi.bmiHeader.biWidth = width
+                bmi.bmiHeader.biHeight = -height
+                bmi.bmiHeader.biPlanes = 1
+                bmi.bmiHeader.biBitCount = 32
+                bmi.bmiHeader.biCompression = BI_RGB
 
-            buf_size = width * height * 4
-            buf = ctypes.create_string_buffer(buf_size)
-            gdi32.GetDIBits(mem_dc, bitmap, 0, height, buf, ctypes.byref(bmi), DIB_RGB_COLORS)
-
-            gdi32.SelectObject(mem_dc, old_bmp)
-            gdi32.DeleteObject(bitmap)
-            gdi32.DeleteDC(mem_dc)
+                buf_size = width * height * 4
+                buf = ctypes.create_string_buffer(buf_size)
+                gdi32.GetDIBits(mem_dc, bitmap, 0, height, buf, ctypes.byref(bmi), DIB_RGB_COLORS)
+            finally:
+                gdi32.SelectObject(mem_dc, old_bmp)
+                gdi32.DeleteObject(bitmap)
+                gdi32.DeleteDC(mem_dc)
 
             img = Image.frombuffer("RGBA", (width, height), buf, "raw", "BGRA", 0, 1)
             img = img.convert("RGB")
@@ -223,7 +224,6 @@ def send_keys_to_window(handle: int, text: str) -> bool:
         except Exception:
             pass
         time.sleep(0.1)
-        _send_vk(VK_RETURN)
         logger.info(f"注入成功(pywinauto): {text[:50]}")
         return True
     except Exception as e:

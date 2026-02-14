@@ -474,7 +474,7 @@ async def _launch_new_claude(chat_id: int, context: ContextTypes.DEFAULT_TYPE, w
         logger.exception(f"启动 Claude Code 失败: {e}")
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"❌ 启动失败: {e}",
+            text="❌ 启动失败，详见日志",
         )
 
 
@@ -644,7 +644,8 @@ async def _run_shell(update: Update, context: ContextTypes.DEFAULT_TYPE, cmd: st
     except subprocess.TimeoutExpired:
         await thinking.edit_text(f"超时 ({SHELL_TIMEOUT}s)")
     except Exception as e:
-        await thinking.edit_text(f"出错: {html.escape(str(e))}", parse_mode="HTML")
+        logger.exception(f"Shell 命令执行失败: {e}")
+        await thinking.edit_text("❌ 执行出错，详见日志")
 
 
 # ── 语音消息处理 ──────────────────────────────────────────────────
@@ -672,7 +673,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await _inject_to_claude(update, context, text)
         except Exception as e:
             logger.exception(f"Whisper 转写失败: {e}")
-            await update.message.reply_text(f"⚠️ 语音转写失败: {e}")
+            await update.message.reply_text("⚠️ 语音转写失败，详见日志")
             inject_text = f"用户发送了语音消息，文件路径: {filepath}"
             await _inject_to_claude(update, context, inject_text, skip_file_check=True)
     else:
@@ -689,7 +690,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text(f"⚠️ 不支持的文件类型: {ext}")
         return
     file = await context.bot.get_file(doc.file_id)
-    filepath = os.path.join(state["cwd"], doc.file_name)
+    filepath = os.path.join(state["cwd"], os.path.basename(doc.file_name))
     await file.download_to_drive(filepath)
     logger.info(f"文件已保存: {filepath}")
     caption = (update.message.caption or "").strip() or "请查看这个文件"

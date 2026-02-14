@@ -22,7 +22,7 @@ os.environ.pop("http_proxy", None)
 os.environ.pop("https_proxy", None)
 os.environ.pop("all_proxy", None)
 
-BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 ALLOWED_USERS = set()
 for _uid in os.environ.get("ALLOWED_USER_IDS", "").split(","):
     _uid = _uid.strip()
@@ -64,6 +64,7 @@ BOT_COMMANDS = [
     BotCommand("new", "启动新 Claude Code 实例"),
     BotCommand("cd", "切换 Shell 工作目录"),
     BotCommand("history", "查看最近20条消息历史"),
+    BotCommand("reload", "热重载配置"),
 ]
 
 # ── 常驻按钮面板 ─────────────────────────────────────────────────
@@ -87,7 +88,7 @@ state = {
     "auto_monitor": True,
     "screenshot_interval": SCREENSHOT_DELAY,
     "monitor_task": None,
-    "msg_queue": deque(),
+    "msg_queue": deque(maxlen=50),
     "queue_chat_id": None,
     "status_msg": None,
     "stream_proc": None,
