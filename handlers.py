@@ -34,7 +34,7 @@ from claude_detect import (
     detect_claude_state, find_claude_windows,
     read_terminal_text, _get_active_projects, _get_active_projects_detail,
 )
-from monitor import _update_status, _delete_status, _start_monitor, _cancel_monitor
+from monitor import _update_status, _delete_status, _start_monitor, _cancel_monitor, _queue_lock
 from stream_mode import _stream_send, _kill_stream_proc, GIT_BASH_PATH
 from utils import (
     send_result, _get_handle, _save_labels, _build_dir_buttons,
@@ -372,21 +372,6 @@ async def cmd_new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def cmd_switch_mode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if state["stream_mode"]:
-        state["stream_mode"] = False
-        _kill_stream_proc()
-        await update.message.reply_text(
-            "🪟 已切换到 <b>窗口模式</b>\n消息将注入到 Claude Code 窗口",
-            parse_mode="HTML", reply_markup=REPLY_KEYBOARD,
-        )
-    else:
-        state["stream_mode"] = True
-        await update.message.reply_text(
-            "📡 已切换到 <b>流式模式</b>\n消息将通过子进程实时通信\n下一条消息将启动流式会话",
-            parse_mode="HTML", reply_markup=REPLY_KEYBOARD,
-        )
-
 
 async def cmd_cd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = " ".join(context.args).strip() if context.args else ""
@@ -657,8 +642,9 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         )
 
     elif data == "queue:clear":
-        count = len(state["msg_queue"])
-        state["msg_queue"].clear()
+        async with _queue_lock:
+            count = len(state["msg_queue"])
+            state["msg_queue"].clear()
         await query.edit_message_text(f"🗑 已清空队列 ({count} 条消息)")
 
     elif data == "new_claude":
@@ -726,12 +712,17 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     elif data.startswith("queue:del:"):
         try:
             idx = int(data.split(":")[2])
-            q = list(state["msg_queue"])
-            if 0 <= idx < len(q):
-                del q[idx]
-                state["msg_queue"].clear()
-                for m in q:
-                    state["msg_queue"].append(m)
+            async with _queue_lock:
+                q = list(state["msg_queue"])
+                if 0 <= idx < len(q):
+                    del q[idx]
+                    state["msg_queue"].clear()
+                    for m in q:
+                        state["msg_queue"].append(m)
+                    deleted = True
+                else:
+                    deleted = False
+            if deleted:
                 await query.edit_message_text(f"🗑 已删除第 {idx+1} 条，剩余 {len(q)} 条")
             else:
                 await query.edit_message_text("❌ 索引无效")
@@ -929,14 +920,15 @@ async def _inject_to_claude(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     st = detect_claude_state(title)
 
     if st == "thinking":
-        if len(state["msg_queue"]) >= 50:
-            await update.message.reply_text("⚠️ 队列已满 (50条)，请等待 Claude 完成")
-            return
-        state["msg_queue"].append(inject_text)
-        state["queue_chat_id"] = update.effective_chat.id
-        queue_text = "📋 " + " → ".join(
-            f"[{i+1}]{m[:20]}" for i, m in enumerate(state["msg_queue"])
-        )
+        async with _queue_lock:
+            if len(state["msg_queue"]) >= 50:
+                await update.message.reply_text("⚠️ 队列已满 (50条)，请等待 Claude 完成")
+                return
+            state["msg_queue"].append(inject_text)
+            state["queue_chat_id"] = update.effective_chat.id
+            queue_text = "📋 " + " → ".join(
+                f"[{i+1}]{m[:20]}" for i, m in enumerate(state["msg_queue"])
+            )
         queue_buttons = InlineKeyboardMarkup([[
             InlineKeyboardButton("📋 查看队列", callback_data="queue:view"),
             InlineKeyboardButton("🗑 清空队列", callback_data="queue:clear"),
@@ -1281,8 +1273,9 @@ async def cmd_batch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not msgs:
         await update.message.reply_text("没有有效消息")
         return
-    for m in msgs:
-        state["msg_queue"].append(m)
+    async with _queue_lock:
+        for m in msgs:
+            state["msg_queue"].append(m)
     await update.message.reply_text(f"📋 已加入队列 {len(msgs)} 条消息")
 
 

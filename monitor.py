@@ -382,9 +382,6 @@ async def _passive_monitor_loop(app) -> None:
                         try: await ws["status_msg"].delete()
                         except Exception: pass
                 window_states.clear()
-                was_thinking = False
-                thinking_start = None
-                passive_status_msg = None
                 continue
 
             windows = await asyncio.to_thread(find_claude_windows)

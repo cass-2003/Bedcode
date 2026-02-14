@@ -316,10 +316,6 @@ def send_ctrl_z(handle: int) -> bool:
     except Exception as e:
         logger.exception(f"Ctrl+Z 发送失败: {e}")
         return False
-        return True
-    except Exception as e:
-        logger.exception(f"Ctrl+Z 发送失败: {e}")
-        return False
 
 
 def copy_image_to_clipboard(filepath: str) -> bool:
