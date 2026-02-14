@@ -23,6 +23,13 @@ header .state.thinking{background:var(--warn);color:#000}
 #screenshot-area .placeholder{color:var(--dim);font-size:14px}
 #text-panel{height:0;overflow-y:auto;background:var(--surface);border-top:1px solid #333;transition:height .2s;font-family:monospace;font-size:13px;padding:0;white-space:pre-wrap;word-break:break-all}
 #text-panel.open{height:40%;padding:8px}
+#msg-log{max-height:120px;overflow-y:auto;background:var(--surface);border-top:1px solid #333;padding:4px 8px;flex-shrink:0;font-size:13px}
+#msg-log:empty{display:none}
+#msg-log .msg{padding:3px 0;border-bottom:1px solid #222}
+#msg-log .msg .time{color:var(--dim);font-size:11px;margin-right:6px}
+#msg-log .msg .dir{margin-right:4px}
+#msg-log .msg.sent .dir{color:var(--ok)}
+#msg-log .msg.recv .dir{color:var(--accent)}
 #toggle-text{position:absolute;bottom:4px;right:4px;background:var(--primary);border:none;color:var(--text);padding:4px 10px;border-radius:12px;font-size:11px;cursor:pointer;z-index:2;opacity:.7}
 .toolbar{display:flex;gap:6px;padding:6px 8px;background:var(--surface);border-top:1px solid #333;flex-wrap:wrap;flex-shrink:0}
 .toolbar button{background:var(--primary);border:none;color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer;flex:1;min-width:60px;max-width:120px}
@@ -61,6 +68,8 @@ header .state.thinking{background:var(--warn);color:#000}
   </div>
   <div id="text-panel"></div>
 </div>
+
+<div id="msg-log"></div>
 
 <div class="toolbar">
   <button onclick="doScreenshot()">📷 截屏</button>
@@ -125,7 +134,7 @@ async function doSend() {
   input.value = '';
   const r = await api('/send', {method:'POST', body: JSON.stringify({text})});
   if (!r) return;
-  if (r.status === 'sent') { toast('✅ 已发送'); startAutoRefresh(); }
+  if (r.status === 'sent') { toast('✅ 已发送'); logMsg(text, 'sent'); startAutoRefresh(); }
   else if (r.status === 'queued') toast('📋 已排队 #' + r.position);
   else toast(r.message || '发送失败');
 }
@@ -236,6 +245,7 @@ function handleWSEvent(msg) {
         const panel = document.getElementById('text-panel');
         panel.textContent = msg.text;
         panel.classList.add('open');
+        logMsg(msg.text.substring(0,100), 'recv');
       }
       break;
     case 'completion':
@@ -247,6 +257,18 @@ function handleWSEvent(msg) {
     case 'pong':
       break;
   }
+}
+
+// ── Message log ──
+function logMsg(text, dir='sent') {
+  const log = document.getElementById('msg-log');
+  const div = document.createElement('div');
+  div.className = 'msg ' + dir;
+  const t = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+  const arrow = dir === 'sent' ? '→' : '←';
+  div.innerHTML = `<span class="time">${t}</span><span class="dir">${arrow}</span>${esc(text.substring(0,200))}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
 }
 
 // ── Auto refresh ──
