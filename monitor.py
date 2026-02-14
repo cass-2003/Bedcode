@@ -351,6 +351,8 @@ async def _monitor_loop(
             await context.bot.send_message(chat_id=state.get("chat_id"), text="⚠️ 监控异常已停止，请检查日志")
         except Exception:
             pass
+    finally:
+        state["monitor_task"] = None
 
 
 def _cancel_monitor():
@@ -374,6 +376,10 @@ async def _passive_monitor_loop(app) -> None:
     while True:
         try:
             await asyncio.sleep(2)
+
+            # 定期清理已完成的 scheduled_tasks
+            if state.get("scheduled_tasks"):
+                state["scheduled_tasks"] = [t for t in state["scheduled_tasks"] if not t["task"].done()]
 
             chat_id = state.get("chat_id")
             if not chat_id:
@@ -432,11 +438,13 @@ async def _passive_monitor_loop(app) -> None:
                         except Exception:
                             ws["status_msg"] = None
                     elif ws["status_msg"] and ws["think_start"]:
-                        try:
-                            await ws["status_msg"].edit_text(
-                                f"🧠 [{label}] 思考中... ({_fmt_elapsed(ws['think_start'])})")
-                        except Exception:
-                            pass
+                        elapsed = int(time.time() - ws["think_start"])
+                        if elapsed % 10 < 3:  # 每 ~10s 更新一次，避免 TG API 刷屏
+                            try:
+                                await ws["status_msg"].edit_text(
+                                    f"🧠 [{label}] 思考中... ({_fmt_elapsed(ws['think_start'])})")
+                            except Exception:
+                                pass
 
                 elif st == "idle" and ws["was_thinking"]:
                     ws["idle_count"] += 1

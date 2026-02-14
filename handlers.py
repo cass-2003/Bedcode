@@ -624,20 +624,22 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await query.edit_message_text("❌ 发送失败")
 
     elif data == "queue:view":
-        if not state["msg_queue"]:
+        async with _queue_lock:
+            items = list(state["msg_queue"])
+        if not items:
             await query.edit_message_text("📋 队列为空")
             return
         queue_list = "\n".join(
             f"{i+1}. {msg[:80]}{'...' if len(msg) > 80 else ''}"
-            for i, msg in enumerate(state["msg_queue"])
+            for i, msg in enumerate(items)
         )
         del_buttons = [
             [InlineKeyboardButton(f"🗑 删除第{i+1}条", callback_data=f"queue:del:{i}")]
-            for i in range(min(len(state["msg_queue"]), 5))
+            for i in range(min(len(items), 5))
         ]
         del_buttons.append([InlineKeyboardButton("🗑 清空全部", callback_data="queue:clear")])
         await query.edit_message_text(
-            f"📋 当前队列 ({len(state['msg_queue'])} 条):\n\n{queue_list}",
+            f"📋 当前队列 ({len(items)} 条):\n\n{queue_list}",
             reply_markup=InlineKeyboardMarkup(del_buttons),
         )
 
@@ -1012,9 +1014,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if api_key:
         try:
             from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-            audio_bytes = open(filepath, "rb").read()
             import io as _io
+            client = OpenAI(api_key=api_key)
+            audio_bytes = await asyncio.to_thread(lambda: open(filepath, "rb").read())
             transcription = await asyncio.to_thread(
                 lambda: client.audio.transcriptions.create(model="whisper-1", file=("audio.ogg", _io.BytesIO(audio_bytes)))
             )

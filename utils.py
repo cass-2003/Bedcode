@@ -26,7 +26,7 @@ os.makedirs(MSG_DIR, exist_ok=True)
 _UNSAFE_CHARS = set('{}"$\\')
 
 
-def split_text(text: str, max_len: int = 4000) -> list[str]:
+def split_text(text: str, max_len: int = 3500) -> list[str]:
     if len(text) <= max_len:
         return [text]
     chunks = []
