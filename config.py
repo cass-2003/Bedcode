@@ -99,4 +99,5 @@ state = {
     "cmd_history": deque(maxlen=20),
     "chat_id": None,
     "passive_monitor_task": None,
+    "last_tg_msg_time": 0,
 }

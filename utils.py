@@ -84,8 +84,8 @@ def _load_labels() -> dict:
         try:
             with open(LABELS_FILE, "r", encoding="utf-8") as f:
                 return {int(k): v for k, v in json.load(f).items()}
-        except Exception:
-            pass
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"加载标签失败: {e}")
     return {}
 
 
@@ -102,8 +102,8 @@ def _load_recent_dirs() -> list[str]:
         try:
             with open(RECENT_DIRS_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"加载路径历史失败: {e}")
     return []
 
 

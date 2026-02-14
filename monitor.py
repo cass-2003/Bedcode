@@ -171,6 +171,16 @@ async def _monitor_loop(
                 await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)}){_build_queue_text()}", context)
                 last_state = st
 
+                # 思考超时自动截图: ~30s, ~90s, ~180s
+                elapsed = int(time.time() - start_time)
+                if elapsed in range(30, 32) or elapsed in range(90, 92) or elapsed in range(180, 182):
+                    img_data = await asyncio.to_thread(capture_window_screenshot, handle)
+                    if img_data:
+                        try:
+                            await context.bot.send_photo(chat_id=chat_id, photo=img_data, caption=f"⏳ 思考已 {_fmt_elapsed(start_time)}")
+                        except Exception:
+                            pass
+
                 text = await asyncio.to_thread(read_terminal_text, handle)
                 prompt = _detect_interactive_prompt(text) if text else None
                 if prompt:
@@ -243,6 +253,10 @@ async def _monitor_loop(
                         grace_period = 5
                     else:
                         buttons = InlineKeyboardMarkup([
+                            [
+                                InlineKeyboardButton("🔄 重试", callback_data="retry:again"),
+                                InlineKeyboardButton("🔀 换方案", callback_data="retry:alt"),
+                            ],
                             [
                                 InlineKeyboardButton("✅ 已完成", callback_data="monitor:done"),
                                 InlineKeyboardButton("🔘 需要选择", callback_data="monitor:waiting"),
@@ -366,6 +380,14 @@ async def _passive_monitor_loop(app) -> None:
                         think_start = None
 
                     logger.info("[被动监控] 检测到本地操作完成，转发结果")
+
+                    # 智能通知: 5分钟内没有 TG 消息则静默（用户在电脑前）
+                    from config import state as _st
+                    if time.time() - _st.get("last_tg_msg_time", 0) > 300:
+                        logger.info("[被动监控] 用户不在 TG，静默跳过")
+                        was_thinking = False
+                        idle_count = 0
+                        continue
 
                     await _forward_result(chat_id, handle, app)
 

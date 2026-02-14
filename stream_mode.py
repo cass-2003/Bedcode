@@ -48,14 +48,12 @@ logger.info(f"Git Bash: {GIT_BASH_PATH}")
 def _kill_stream_proc():
     proc = state.get("stream_proc")
     if proc and proc.poll() is None:
+        proc.terminate()
         try:
-            proc.terminate()
-            proc.wait(timeout=5)
-        except Exception:
-            try:
-                proc.kill()
-            except Exception:
-                pass
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
     state["stream_proc"] = None
     task = state.get("stream_task")
     if task and not task.done():

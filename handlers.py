@@ -362,11 +362,14 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             f"{i+1}. {msg[:80]}{'...' if len(msg) > 80 else ''}"
             for i, msg in enumerate(state["msg_queue"])
         )
+        del_buttons = [
+            [InlineKeyboardButton(f"🗑 删除第{i+1}条", callback_data=f"queue:del:{i}")]
+            for i in range(min(len(state["msg_queue"]), 5))
+        ]
+        del_buttons.append([InlineKeyboardButton("🗑 清空全部", callback_data="queue:clear")])
         await query.edit_message_text(
             f"📋 当前队列 ({len(state['msg_queue'])} 条):\n\n{queue_list}",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🗑 清空", callback_data="queue:clear"),
-            ]]),
+            reply_markup=InlineKeyboardMarkup(del_buttons),
         )
 
     elif data == "queue:clear":
@@ -423,6 +426,33 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     await context.bot.send_photo(chat_id=query.message.chat_id, photo=img_data)
                 except Exception:
                     pass
+
+    elif data.startswith("retry:"):
+        action = data.split(":")[1]
+        handle = await _get_handle()
+        if not handle:
+            await query.edit_message_text("❌ 窗口已关闭")
+            return
+        retry_text = {"again": "请重试上一个操作", "alt": "请换一种方案重新实现"}.get(action, "请重试")
+        await query.edit_message_text(f"🔄 已发送: {retry_text}")
+        success = await asyncio.to_thread(send_keys_to_window, handle, retry_text)
+        if success and state["auto_monitor"]:
+            _start_monitor(handle, query.message.chat_id, context)
+
+    elif data.startswith("queue:del:"):
+        try:
+            idx = int(data.split(":")[2])
+            q = list(state["msg_queue"])
+            if 0 <= idx < len(q):
+                del q[idx]
+                state["msg_queue"].clear()
+                for m in q:
+                    state["msg_queue"].append(m)
+                await query.edit_message_text(f"🗑 已删除第 {idx+1} 条，剩余 {len(q)} 条")
+            else:
+                await query.edit_message_text("❌ 索引无效")
+        except (ValueError, IndexError):
+            await query.edit_message_text("❌ 无效操作")
 
     elif data.startswith("resend:"):
         try:
@@ -519,6 +549,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     text = update.message.text.strip()
     if not text:
         return
+    state["last_tg_msg_time"] = time.time()
 
     pending_handle = context.user_data.get("pending_label_handle")
     if pending_handle is not None:
