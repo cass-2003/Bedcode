@@ -9,6 +9,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from config import state
+from core.events import bus, Event
 from win32_api import (
     capture_window_screenshot, _image_hash, get_window_title,
     send_keys_to_window, send_raw_keys,
@@ -271,6 +272,11 @@ async def _monitor_loop(
                     await _delete_status()
 
                     await _forward_result(chat_id, handle, context)
+                    # WS 事件: 活跃监控完成
+                    img = await asyncio.to_thread(capture_window_screenshot, handle)
+                    if img:
+                        await bus.emit(Event("screenshot", {"image_bytes": img}))
+                    await bus.emit(Event("completion", {"label": state.get("window_labels", {}).get(handle, ""), "handle": handle}))
 
                     if state.get("auto_pin", True):
                         try:
@@ -337,6 +343,7 @@ async def _monitor_loop(
                     img_hash = _image_hash(img_data)
                     if img_hash != state["last_screenshot_hash"]:
                         state["last_screenshot_hash"] = img_hash
+                        await bus.emit(Event("screenshot", {"image_bytes": img_data}))
                         for _attempt in range(2):
                             try:
                                 await context.bot.send_photo(chat_id=chat_id, photo=img_data)
@@ -484,6 +491,7 @@ async def _passive_monitor_loop(app) -> None:
 
                         await app.bot.send_message(chat_id=chat_id, text=f"📌{label} 完成")
                         await _forward_result(chat_id, handle, app)
+                        await bus.emit(Event("completion", {"label": label, "handle": handle}))
 
                         ws["was_thinking"] = False
                         ws["idle_count"] = 0

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="/manifest.json">
+<title>BedCode</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a2e;--surface:#16213e;--primary:#0f3460;--accent:#e94560;--text:#eee;--dim:#888;--ok:#4ecca3;--warn:#f0a500}
+body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+header{background:var(--surface);padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #333;flex-shrink:0}
+header .dot{width:10px;height:10px;border-radius:50%;background:#666}
+header .dot.on{background:var(--ok)}
+header .title{flex:1;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .state{font-size:12px;padding:2px 8px;border-radius:10px;background:var(--primary)}
+header .state.thinking{background:var(--warn);color:#000}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+#screenshot-area{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000;position:relative;min-height:0}
+#screenshot-area img{max-width:100%;max-height:100%;object-fit:contain}
+#screenshot-area .placeholder{color:var(--dim);font-size:14px}
+#text-panel{height:0;overflow-y:auto;background:var(--surface);border-top:1px solid #333;transition:height .2s;font-family:monospace;font-size:13px;padding:0;white-space:pre-wrap;word-break:break-all}
+#text-panel.open{height:40%;padding:8px}
+#toggle-text{position:absolute;bottom:4px;right:4px;background:var(--primary);border:none;color:var(--text);padding:4px 10px;border-radius:12px;font-size:11px;cursor:pointer;z-index:2;opacity:.7}
+.toolbar{display:flex;gap:6px;padding:6px 8px;background:var(--surface);border-top:1px solid #333;flex-wrap:wrap;flex-shrink:0}
+.toolbar button{background:var(--primary);border:none;color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer;flex:1;min-width:60px;max-width:120px}
+.toolbar button:active{opacity:.7}
+.toolbar button.danger{background:var(--accent)}
+#input-bar{display:flex;gap:6px;padding:6px 8px;background:var(--surface);border-top:1px solid #333;flex-shrink:0}
+#input-bar input{flex:1;background:#0d1b2a;border:1px solid #333;color:var(--text);padding:10px;border-radius:8px;font-size:14px;outline:none}
+#input-bar input:focus{border-color:var(--accent)}
+#input-bar button{background:var(--accent);border:none;color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer}
+#toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;display:none;z-index:99}
+#windows-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10;align-items:center;justify-content:center}
+#windows-modal.open{display:flex}
+#windows-modal .panel{background:var(--surface);border-radius:12px;padding:16px;width:90%;max-width:400px;max-height:70vh;overflow-y:auto}
+#windows-modal .panel h3{margin-bottom:12px;font-size:16px}
+#windows-modal .win-item{padding:10px;border:1px solid #333;border-radius:8px;margin-bottom:8px;cursor:pointer}
+#windows-modal .win-item:active{background:var(--primary)}
+#windows-modal .win-item.current{border-color:var(--ok)}
+#windows-modal .win-item .wt{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#windows-modal .win-item .ws{font-size:11px;color:var(--dim)}
+.close-btn{float:right;background:none;border:none;color:var(--dim);font-size:20px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dot" id="conn-dot"></div>
+  <div class="title" id="hdr-title">BedCode</div>
+  <div class="state" id="hdr-state">--</div>
+</header>
+
+<div id="main">
+  <div id="screenshot-area">
+    <span class="placeholder" id="ss-placeholder">点击「截屏」获取画面</span>
+    <img id="ss-img" style="display:none" alt="screenshot">
+    <button id="toggle-text">终端文本</button>
+  </div>
+  <div id="text-panel"></div>
+</div>
+
+<div class="toolbar">
+  <button onclick="doScreenshot()">📷 截屏</button>
+  <button onclick="doWindows()">🪟 窗口</button>
+  <button onclick="doBreak()" class="danger">⏹ 中断</button>
+  <button onclick="doUndo()">↩ 撤销</button>
+  <button onclick="doGrab()">📋 抓取</button>
+  <button onclick="doRefresh()">🔄 状态</button>
+</div>
+
+<div id="input-bar">
+  <input id="msg-input" placeholder="输入消息发送给 Claude..." autocomplete="off">
+  <button onclick="doSend()">发送</button>
+</div>
+
+<div id="windows-modal"><div class="panel"><button class="close-btn" onclick="closeWindows()">×</button><h3>🪟 窗口列表</h3><div id="win-list"></div></div></div>
+<div id="toast"></div>
+
+<script>
+const API = location.origin;
+let TOKEN = localStorage.getItem('bedcode_token') || '';
+let ws = null;
+let reconnectTimer = null;
+
+// ── Auth ──
+if (!TOKEN) {
+  TOKEN = prompt('输入 API Token:') || '';
+  if (TOKEN) localStorage.setItem('bedcode_token', TOKEN);
+}
+
+const headers = () => ({'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json'});
+
+// ── Toast ──
+function toast(msg, ms=1500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', ms);
+}
+
+// ── API calls ──
+async function api(path, opts={}) {
+  try {
+    const r = await fetch(API + '/api' + path, {headers: headers(), ...opts});
+    if (r.status === 401) { toast('Token 无效'); return null; }
+    if (r.headers.get('content-type')?.includes('image')) return r;
+    return await r.json();
+  } catch(e) { toast('请求失败'); return null; }
+}
+
+async function doScreenshot() {
+  const r = await fetch(API + '/api/screenshot', {headers: headers()});
+  if (!r.ok) { toast('截屏失败'); return; }
+  const blob = await r.blob();
+  showImage(URL.createObjectURL(blob));
+}
+
+async function doSend() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const r = await api('/send', {method:'POST', body: JSON.stringify({text})});
+  if (!r) return;
+  if (r.status === 'sent') toast('✅ 已发送');
+  else if (r.status === 'queued') toast('📋 已排队 #' + r.position);
+  else toast(r.message || '发送失败');
+}
+
+async function doBreak() {
+  const r = await api('/break', {method:'POST'});
+  if (r?.status === 'ok') toast('⏹ 已中断');
+}
+
+async function doUndo() {
+  const r = await api('/undo', {method:'POST'});
+  if (r?.status === 'ok') toast('↩ 已撤销');
+}
+
+async function doGrab() {
+  const r = await api('/grab');
+  if (!r) return;
+  const panel = document.getElementById('text-panel');
+  panel.textContent = r.text || '(空)';
+  panel.classList.add('open');
+}
+
+async function doRefresh() {
+  const r = await api('/status');
+  if (!r) return;
+  updateHeader(r);
+  toast('已刷新');
+}
+
+async function doWindows() {
+  const r = await api('/windows');
+  if (!r) return;
+  const list = document.getElementById('win-list');
+  list.innerHTML = '';
+  if (!r.windows.length) { list.innerHTML = '<p style="color:var(--dim)">未找到窗口</p>'; }
+  r.windows.forEach(w => {
+    const div = document.createElement('div');
+    div.className = 'win-item' + (w.current ? ' current' : '');
+    div.innerHTML = `<div class="wt">${w.label ? '📌'+w.label+' ' : ''}${esc(w.title)}</div><div class="ws">${w.state} | ${w.handle}</div>`;
+    div.onclick = async () => {
+      await api('/target', {method:'POST', body: JSON.stringify({handle: w.handle})});
+      toast('已切换');
+      closeWindows();
+      doRefresh();
+    };
+    list.appendChild(div);
+  });
+  document.getElementById('windows-modal').classList.add('open');
+}
+
+function closeWindows() { document.getElementById('windows-modal').classList.remove('open'); }
+
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ── UI updates ──
+function showImage(src) {
+  const img = document.getElementById('ss-img');
+  const ph = document.getElementById('ss-placeholder');
+  img.src = src;
+  img.style.display = 'block';
+  ph.style.display = 'none';
+}
+
+function updateHeader(data) {
+  document.getElementById('hdr-title').textContent = (data.label ? '📌'+data.label+' ' : '') + (data.title || 'BedCode').substring(0, 40);
+  const stEl = document.getElementById('hdr-state');
+  const stMap = {thinking:'思考中', idle:'空闲', unknown:'--'};
+  stEl.textContent = stMap[data.state] || data.state;
+  stEl.className = 'state' + (data.state === 'thinking' ? ' thinking' : '');
+}
+
+// ── WebSocket ──
+function connectWS() {
+  if (ws && ws.readyState <= 1) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/ws');
+  ws.onopen = () => {
+    ws.send(JSON.stringify({token: TOKEN}));
+    document.getElementById('conn-dot').classList.add('on');
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  };
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      handleWSEvent(msg);
+    } catch(err) {}
+  };
+  ws.onclose = () => {
+    document.getElementById('conn-dot').classList.remove('on');
+    reconnectTimer = setTimeout(connectWS, 3000);
+  };
+  ws.onerror = () => ws.close();
+}
+
+function handleWSEvent(msg) {
+  switch(msg.type) {
+    case 'screenshot':
+      if (msg.image_base64) showImage('data:image/png;base64,' + msg.image_base64);
+      break;
+    case 'status':
+      if (msg.text) {
+        document.getElementById('hdr-title').textContent = msg.text.substring(0, 50);
+      }
+      break;
+    case 'text':
+    case 'result':
+      if (msg.text) {
+        const panel = document.getElementById('text-panel');
+        panel.textContent = msg.text;
+        panel.classList.add('open');
+      }
+      break;
+    case 'completion':
+      toast('✅ ' + (msg.label || '') + ' 完成');
+      doScreenshot();
+      break;
+    case 'pong':
+      break;
+  }
+}
+
+// ── Init ──
+document.getElementById('toggle-text').onclick = () => {
+  document.getElementById('text-panel').classList.toggle('open');
+};
+
+document.getElementById('msg-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSend();
+});
+
+connectWS();
+doRefresh();
+
+// PWA service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

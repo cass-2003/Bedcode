@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""BedCode v5 — Telegram Bot 远程操控 Claude Code"""
+"""BedCode v5 — Telegram Bot + Web API 远程操控 Claude Code"""
+import os
 import asyncio
 import signal
 
@@ -32,7 +33,7 @@ from handlers import (
 )
 from monitor import _start_passive_monitor
 
-# 加载持久化标签
+# 加载持久化状态
 state["window_labels"] = _load_labels()
 state["templates"] = _load_templates()
 _panel_rows = _load_panel()
@@ -45,18 +46,6 @@ _load_state()
 
 async def error_handler(update: object, context) -> None:
     logger.error(f"异常: {context.error}")
-
-
-async def post_init(application: Application) -> None:
-    await application.bot.set_my_commands(BOT_COMMANDS)
-    logger.info("命令菜单已注册")
-    # 启动常驻被动监控（等第一条消息获取 chat_id 后自动生效）
-    _start_passive_monitor(application)
-    try:
-        from health import start_health_server
-        await start_health_server()
-    except Exception as e:
-        logger.warning(f"Health server skipped: {e}")
 
 
 def _cleanup():
@@ -76,6 +65,87 @@ def _cleanup():
     logger.info("BedCode 清理完成")
 
 
+def _build_tg_app() -> Application:
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .read_timeout(30)
+        .write_timeout(30)
+        .connect_timeout(30)
+        .pool_timeout(30)
+        .build()
+    )
+    app.add_error_handler(error_handler)
+    app.add_handler(TypeHandler(Update, auth_gate), group=-1)
+
+    for name, handler in [
+        ("start", cmd_start), ("screenshot", cmd_screenshot), ("grab", cmd_grab),
+        ("key", cmd_key), ("watch", cmd_watch), ("stop", cmd_stop),
+        ("break", cmd_break), ("delay", cmd_delay), ("auto", cmd_auto),
+        ("windows", cmd_windows), ("new", cmd_new), ("cd", cmd_cd),
+        ("history", cmd_history), ("cost", cmd_cost), ("export", cmd_export),
+        ("undo", cmd_undo), ("reload", cmd_reload), ("diff", cmd_diff),
+        ("log", cmd_log), ("search", cmd_search), ("schedule", cmd_schedule),
+        ("proj", cmd_proj), ("tpl", cmd_tpl), ("panel", cmd_panel),
+        ("clip", cmd_clip), ("autoyes", cmd_autoyes), ("quiet", cmd_quiet),
+        ("alias", cmd_alias), ("batch", cmd_batch), ("tts", cmd_tts), ("ocr", cmd_ocr),
+    ]:
+        app.add_handler(CommandHandler(name, handler))
+
+    app.add_handler(CallbackQueryHandler(callback_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    return app
+
+
+async def run_all():
+    # 1. 扫描窗口
+    windows = find_claude_windows()
+    if windows:
+        state["target_handle"] = windows[0]["handle"]
+        logger.info(f"锁定窗口: {windows[0]['title']} ({windows[0]['handle']})")
+    else:
+        logger.warning("未找到 Claude Code 窗口")
+
+    # 2. 启动 TG bot（非阻塞）
+    tg_app = _build_tg_app()
+    await tg_app.initialize()
+    await tg_app.start()
+    await tg_app.updater.start_polling(
+        allowed_updates=Update.ALL_TYPES,
+        drop_pending_updates=True,
+    )
+    await tg_app.bot.set_my_commands(BOT_COMMANDS)
+    logger.info("Telegram bot 已启动")
+
+    # 3. 启动被动监控
+    _start_passive_monitor(tg_app)
+
+    # 4. 启动 FastAPI + uvicorn
+    from api.app import app as fastapi_app, setup_routes, API_TOKEN
+    setup_routes()
+
+    api_port = int(os.environ.get("API_PORT", "8080"))
+    logger.info(f"BedCode v5 启动 | TG用户: {ALLOWED_USERS} | API: http://0.0.0.0:{api_port} | Token: {API_TOKEN}")
+
+    import uvicorn
+    uvi_config = uvicorn.Config(
+        fastapi_app, host="0.0.0.0", port=api_port,
+        log_level="warning", access_log=False,
+    )
+    server = uvicorn.Server(uvi_config)
+
+    try:
+        await server.serve()
+    finally:
+        await tg_app.updater.stop()
+        await tg_app.stop()
+        await tg_app.shutdown()
+        _cleanup()
+
+
 def main() -> None:
     signal.signal(signal.SIGINT, lambda *_: _cleanup())
     signal.signal(signal.SIGTERM, lambda *_: _cleanup())
@@ -86,71 +156,7 @@ def main() -> None:
         print("错误: 请在 .env 中设置 ALLOWED_USER_IDS")
         return
 
-    windows = find_claude_windows()
-    if windows:
-        state["target_handle"] = windows[0]["handle"]
-        logger.info(f"锁定窗口: {windows[0]['title']} ({windows[0]['handle']})")
-    else:
-        logger.warning("未找到 Claude Code 窗口")
-
-    logger.info(f"BedCode v5 启动 | 用户: {ALLOWED_USERS}")
-
-    app = (
-        Application.builder()
-        .token(BOT_TOKEN)
-        .post_init(post_init)
-        .read_timeout(30)
-        .write_timeout(30)
-        .connect_timeout(30)
-        .pool_timeout(30)
-        .build()
-    )
-    app.add_error_handler(error_handler)
-    app.add_handler(TypeHandler(Update, auth_gate), group=-1)
-
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("screenshot", cmd_screenshot))
-    app.add_handler(CommandHandler("grab", cmd_grab))
-    app.add_handler(CommandHandler("key", cmd_key))
-    app.add_handler(CommandHandler("watch", cmd_watch))
-    app.add_handler(CommandHandler("stop", cmd_stop))
-    app.add_handler(CommandHandler("break", cmd_break))
-    app.add_handler(CommandHandler("delay", cmd_delay))
-    app.add_handler(CommandHandler("auto", cmd_auto))
-    app.add_handler(CommandHandler("windows", cmd_windows))
-    app.add_handler(CommandHandler("new", cmd_new))
-    app.add_handler(CommandHandler("cd", cmd_cd))
-    app.add_handler(CommandHandler("history", cmd_history))
-    app.add_handler(CommandHandler("cost", cmd_cost))
-    app.add_handler(CommandHandler("export", cmd_export))
-    app.add_handler(CommandHandler("undo", cmd_undo))
-    app.add_handler(CommandHandler("reload", cmd_reload))
-    app.add_handler(CommandHandler("diff", cmd_diff))
-    app.add_handler(CommandHandler("log", cmd_log))
-    app.add_handler(CommandHandler("search", cmd_search))
-    app.add_handler(CommandHandler("schedule", cmd_schedule))
-    app.add_handler(CommandHandler("proj", cmd_proj))
-    app.add_handler(CommandHandler("tpl", cmd_tpl))
-    app.add_handler(CommandHandler("panel", cmd_panel))
-    app.add_handler(CommandHandler("clip", cmd_clip))
-    app.add_handler(CommandHandler("autoyes", cmd_autoyes))
-    app.add_handler(CommandHandler("quiet", cmd_quiet))
-    app.add_handler(CommandHandler("alias", cmd_alias))
-    app.add_handler(CommandHandler("batch", cmd_batch))
-    app.add_handler(CommandHandler("tts", cmd_tts))
-    app.add_handler(CommandHandler("ocr", cmd_ocr))
-    app.add_handler(CallbackQueryHandler(callback_handler))
-
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-
-    app.run_polling(
-        allowed_updates=Update.ALL_TYPES,
-        drop_pending_updates=True,
-        bootstrap_retries=5,
-    )
+    asyncio.run(run_all())
 
 
 if __name__ == "__main__":
