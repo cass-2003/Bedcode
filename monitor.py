@@ -110,7 +110,21 @@ async def _forward_result(chat_id: int, handle: int, ctx) -> None:
     if not term_text or len(term_text.strip()) <= 10:
         term_text = await asyncio.to_thread(read_terminal_text, handle)
     if term_text and len(term_text.strip()) > 10:
-        await send_result(chat_id, term_text, ctx)
+        # Detect notification level
+        _err_kw = ("error", "Error", "failed", "Failed", "❌", "traceback", "Traceback", "exception", "Exception")
+        _ok_kw = ("✅", "完成", "done", "success", "passed")
+        if any(k in term_text for k in _err_kw):
+            level = "error"
+        elif any(k in term_text for k in _ok_kw):
+            level = "success"
+        else:
+            level = "info"
+
+        prefix = {"error": "🚨 ", "success": "✅ "}.get(level, "")
+        await send_result(chat_id, prefix + term_text if prefix else term_text, ctx)
+
+        if level == "error":
+            await bot.send_message(chat_id=chat_id, text="🚨 检测到错误输出，请检查！")
 
 
 async def _monitor_loop(
@@ -400,8 +414,7 @@ async def _passive_monitor_loop(app) -> None:
                     logger.info("[被动监控] 检测到本地操作完成，转发结果")
 
                     # 智能通知: 5分钟内没有 TG 消息则静默（用户在电脑前）
-                    from config import state as _st
-                    if time.time() - _st.get("last_tg_msg_time", 0) > 300:
+                    if time.time() - state.get("last_tg_msg_time", 0) > 300:
                         logger.info("[被动监控] 用户不在 TG，静默跳过")
                         was_thinking = False
                         idle_count = 0

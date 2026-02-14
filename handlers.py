@@ -10,6 +10,7 @@ import logging
 from telegram import (
     Update,
     InlineKeyboardButton, InlineKeyboardMarkup,
+    ReplyKeyboardMarkup, KeyboardButton,
 )
 from telegram.ext import (
     ApplicationHandlerStop,
@@ -18,7 +19,7 @@ from telegram.ext import (
 
 import config
 from config import (
-    state, ALLOWED_USERS, SHELL_TIMEOUT, REPLY_KEYBOARD,
+    state, ALLOWED_USERS, READONLY_USERS, SHELL_TIMEOUT, REPLY_KEYBOARD,
 )
 from win32_api import (
     capture_window_screenshot, get_window_title,
@@ -29,13 +30,14 @@ from win32_api import (
 )
 from claude_detect import (
     detect_claude_state, find_claude_windows,
-    read_terminal_text, _get_active_projects,
+    read_terminal_text, _get_active_projects, _get_active_projects_detail,
 )
 from monitor import _update_status, _delete_status, _start_monitor, _cancel_monitor
 from stream_mode import _stream_send, _kill_stream_proc, GIT_BASH_PATH
 from utils import (
     send_result, _get_handle, _save_labels, _build_dir_buttons,
     _save_recent_dir, _needs_file, _save_msg_file, IMG_DIR,
+    _save_templates, _load_panel, _save_panel,
 )
 
 logger = logging.getLogger("bedcode")
@@ -51,10 +53,16 @@ SUPPORTED_DOC_EXTS = {
 
 # ── Auth ──────────────────────────────────────────────────────────
 async def auth_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or update.effective_user.id not in ALLOWED_USERS:
+    uid = update.effective_user.id if update.effective_user else None
+    if not uid or (uid not in ALLOWED_USERS and uid not in READONLY_USERS):
         raise ApplicationHandlerStop()
     if update.effective_chat and not state.get("chat_id"):
         state["chat_id"] = update.effective_chat.id
+
+
+def _is_readonly(update: Update) -> bool:
+    uid = update.effective_user.id if update.effective_user else None
+    return uid is not None and uid in READONLY_USERS and uid not in ALLOWED_USERS
 
 
 # ── 命令处理 ──────────────────────────────────────────────────────
@@ -144,6 +152,9 @@ async def cmd_auto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_key(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if _is_readonly(update):
+        await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+        return
     args = " ".join(context.args).strip() if context.args else ""
     if not args:
         await update.message.reply_text(
@@ -196,6 +207,9 @@ async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_break(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if _is_readonly(update):
+        await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+        return
     handle = await _get_handle()
     if not handle:
         await update.message.reply_text("未找到窗口，先 /windows")
@@ -206,8 +220,17 @@ async def cmd_break(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_cost(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    cost = state.get("session_cost", 0.0)
-    await update.message.reply_text(f"💰 本次会话费用: ${cost:.4f}")
+    costs = state.get("session_costs", {})
+    labels = state.get("window_labels", {})
+    lines = ["💰 会话费用:"]
+    total = 0.0
+    for h, c in costs.items():
+        total += c
+        label = labels.get(h, f"窗口{h}")
+        lines.append(f"📌{label}: ${c:.4f}")
+    lines.append("──────")
+    lines.append(f"总计: ${total:.4f}")
+    await update.message.reply_text("\n".join(lines))
 
 
 async def cmd_export(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -219,15 +242,19 @@ async def cmd_export(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "messages", f"export_{int(time.time())}.md")
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(text)
-    await context.bot.send_document(
-        chat_id=update.effective_chat.id,
-        document=open(filepath, "rb"),
-        filename=os.path.basename(filepath),
-        caption=f"📝 导出 {len(text)} 字",
-    )
+    with open(filepath, "rb") as doc_file:
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=doc_file,
+            filename=os.path.basename(filepath),
+            caption=f"📝 导出 {len(text)} 字",
+        )
 
 
 async def cmd_undo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if _is_readonly(update):
+        await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+        return
     handle = await _get_handle()
     if not handle:
         await update.message.reply_text("未找到窗口，先 /windows")
@@ -279,6 +306,9 @@ async def cmd_windows(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def cmd_new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if _is_readonly(update):
+        await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+        return
     args = " ".join(context.args).strip() if context.args else ""
     if args and os.path.isdir(args):
         await update.message.reply_text(f"🚀 正在启动新实例...\n📂 {args}")
@@ -320,6 +350,25 @@ async def cmd_cd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"不存在: <code>{html.escape(target)}</code>", parse_mode="HTML")
 
 
+async def cmd_proj(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    projects = await asyncio.to_thread(_get_active_projects_detail, 8)
+    handle = state["target_handle"]
+    cur_title = await asyncio.to_thread(get_window_title, handle) if handle else ""
+    cur_info = f"当前窗口: <code>{html.escape(cur_title[:60])}</code>" if cur_title else "未锁定窗口"
+    if not projects:
+        await update.message.reply_text(f"{cur_info}\n\n无最近项目", parse_mode="HTML")
+        return
+    buttons = []
+    for p in projects:
+        marker = " ✔" if cur_title and p["name"].lower() in cur_title.lower() else ""
+        buttons.append([InlineKeyboardButton(f"📂 {p['name']}{marker}", callback_data=f"proj:{p['dir_name']}")])
+    await update.message.reply_text(
+        f"{cur_info}\n\n<b>最近项目：</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+
+
 async def cmd_reload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     from dotenv import load_dotenv
     load_dotenv(override=True)
@@ -335,6 +384,98 @@ async def cmd_reload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         f"WORK_DIR={config.WORK_DIR}",
         parse_mode="HTML",
     )
+
+
+async def cmd_tpl(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = " ".join(context.args).strip() if context.args else ""
+    if not args:
+        tpls = state["templates"]
+        if not tpls:
+            await update.message.reply_text("暂无模板\n用法: /tpl add 名称 内容")
+            return
+        buttons = [[InlineKeyboardButton(name, callback_data=f"tpl:{name}")] for name in tpls]
+        await update.message.reply_text("📋 选择模板发送：", reply_markup=InlineKeyboardMarkup(buttons))
+        return
+    if args.startswith("add "):
+        parts = args[4:].strip().split(None, 1)
+        if len(parts) < 2:
+            await update.message.reply_text("用法: /tpl add 名称 内容")
+            return
+        name, content = parts
+        state["templates"][name] = content
+        _save_templates()
+        await update.message.reply_text(f"✅ 模板 <b>{html.escape(name)}</b> 已保存", parse_mode="HTML")
+    elif args.startswith("del "):
+        name = args[4:].strip()
+        if name in state["templates"]:
+            del state["templates"][name]
+            _save_templates()
+            await update.message.reply_text(f"🗑 模板 <b>{html.escape(name)}</b> 已删除", parse_mode="HTML")
+        else:
+            await update.message.reply_text(f"模板 {html.escape(name)} 不存在", parse_mode="HTML")
+    else:
+        await update.message.reply_text("用法: /tpl | /tpl add 名称 内容 | /tpl del 名称")
+
+
+def _build_panel_markup(rows):
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton(b) for b in row] for row in rows],
+        resize_keyboard=True, is_persistent=True,
+    )
+
+
+def _get_keyboard():
+    return state["custom_panel"] or REPLY_KEYBOARD
+
+
+async def cmd_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = " ".join(context.args).strip() if context.args else ""
+    if not args:
+        if state["custom_panel"]:
+            rows = [[b.text for b in row] for row in state["custom_panel"].keyboard]
+            layout = "\n".join(f"  {' | '.join(r)}" for r in rows)
+            await update.message.reply_text(f"当前自定义面板:\n{layout}\n\n/panel reset | add | del")
+        else:
+            await update.message.reply_text("使用默认面板\n/panel add 按钮文字\n/panel del 按钮文字\n/panel reset")
+        return
+    if args == "reset":
+        state["custom_panel"] = None
+        _save_panel(None)
+        await update.message.reply_text("✅ 已恢复默认面板", reply_markup=REPLY_KEYBOARD)
+        return
+    if args.startswith("add "):
+        btn_text = args[4:].strip()
+        if not btn_text:
+            await update.message.reply_text("用法: /panel add 按钮文字")
+            return
+        kb = state["custom_panel"] or REPLY_KEYBOARD
+        rows = [[b.text for b in row] for row in kb.keyboard]
+        if rows and len(rows[-1]) < 3:
+            rows[-1].append(btn_text)
+        else:
+            rows.append([btn_text])
+        state["custom_panel"] = _build_panel_markup(rows)
+        _save_panel(rows)
+        await update.message.reply_text(f"✅ 已添加: {btn_text}", reply_markup=state["custom_panel"])
+        return
+    if args.startswith("del "):
+        btn_text = args[4:].strip()
+        if not btn_text:
+            await update.message.reply_text("用法: /panel del 按钮文字")
+            return
+        kb = state["custom_panel"] or REPLY_KEYBOARD
+        rows = [[b for b in row if b.text != btn_text] for row in kb.keyboard]
+        rows = [[b.text for b in row] for row in rows if row]
+        if not rows:
+            state["custom_panel"] = None
+            _save_panel(None)
+            await update.message.reply_text("✅ 面板已清空，恢复默认", reply_markup=REPLY_KEYBOARD)
+        else:
+            state["custom_panel"] = _build_panel_markup(rows)
+            _save_panel(rows)
+            await update.message.reply_text(f"✅ 已删除: {btn_text}", reply_markup=state["custom_panel"])
+        return
+    await update.message.reply_text("用法: /panel | /panel add 文字 | /panel del 文字 | /panel reset")
 
 
 # ── 回调处理 ──────────────────────────────────────────────────────
@@ -367,6 +508,31 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await context.bot.send_photo(
                 chat_id=query.message.chat_id, photo=img_data,
                 caption=f"当前窗口{label_tag}",
+            )
+
+    elif data.startswith("proj:"):
+        from claude_detect import _decode_proj_dirname
+        dir_name = data[5:]
+        proj_path = _decode_proj_dirname(dir_name)
+        proj_name = dir_name.split("-")[-1] if "-" in dir_name else dir_name
+        windows = await asyncio.to_thread(find_claude_windows)
+        matched = None
+        for w in windows:
+            if proj_name.lower() in w["title"].lower():
+                matched = w
+                break
+        if matched:
+            state["target_handle"] = matched["handle"]
+            st_label = {"thinking": "思考中", "idle": "空闲", "unknown": "未知"}.get(matched["state"], "?")
+            await query.edit_message_text(f"✅ 已切换到 {proj_name} [{st_label}]")
+            img_data = await asyncio.to_thread(capture_window_screenshot, matched["handle"])
+            if img_data:
+                await context.bot.send_photo(chat_id=query.message.chat_id, photo=img_data)
+        else:
+            buttons = [[InlineKeyboardButton("🚀 启动新实例", callback_data=f"newdir:{proj_path}")]]
+            await query.edit_message_text(
+                f"未找到 {proj_name} 的窗口\n📂 {proj_path}",
+                reply_markup=InlineKeyboardMarkup(buttons),
             )
 
     elif data.startswith("label:"):
@@ -510,6 +676,16 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         except (ValueError, IndexError):
             await query.edit_message_text("❌ 无效的历史索引")
 
+    elif data.startswith("tpl:"):
+        name = data[4:]
+        content = state["templates"].get(name)
+        if not content:
+            await query.edit_message_text(f"模板 {name} 不存在")
+            return
+        await query.edit_message_text(f"📋 发送模板: {name}")
+        state["cmd_history"].append(content)
+        await _inject_to_claude(update, context, content)
+
 
 # ── 启动新实例 ────────────────────────────────────────────────────
 async def _launch_new_claude(chat_id: int, context: ContextTypes.DEFAULT_TYPE, work_dir: str = None, new_window: bool = False) -> None:
@@ -554,6 +730,9 @@ async def _launch_new_claude(chat_id: int, context: ContextTypes.DEFAULT_TYPE, w
 
 # ── 消息处理 ──────────────────────────────────────────────────────
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if _is_readonly(update):
+        await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+        return
     photo = update.message.photo[-1]
     caption = (update.message.caption or "").strip()
     file = await context.bot.get_file(photo.file_id)
@@ -616,6 +795,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if text in BUTTON_MAP:
         await BUTTON_MAP[text](update, context)
         return
+
+    if _is_readonly(update):
+        await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+        return
+
+    # Custom panel buttons: if text matches a custom button not in BUTTON_MAP, inject as text
+    if state["custom_panel"]:
+        custom_btns = {b.text for row in state["custom_panel"].keyboard for b in row}
+        if text in custom_btns:
+            state["cmd_history"].append(text)
+            await _inject_to_claude(update, context, text)
+            return
 
     if state.get("_waiting_new_dir"):
         state["_waiting_new_dir"] = False
@@ -734,6 +925,9 @@ async def _run_shell(update: Update, context: ContextTypes.DEFAULT_TYPE, cmd: st
 
 # ── 语音消息处理 ──────────────────────────────────────────────────
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if _is_readonly(update):
+        await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+        return
     voice = update.message.voice
     file = await context.bot.get_file(voice.file_id)
     ts = int(time.time())
@@ -768,6 +962,9 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 # ── 文件/文档处理 ─────────────────────────────────────────────────
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if _is_readonly(update):
+        await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+        return
     doc = update.message.document
     ext = os.path.splitext(doc.file_name or "")[1].lower()
     if ext not in SUPPORTED_DOC_EXTS:
@@ -789,6 +986,132 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 # ── 命令历史 ─────────────────────────────────────────────────────
+async def cmd_diff(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        result = await asyncio.to_thread(
+            lambda: subprocess.run(
+                [GIT_BASH_PATH, "-c", "git diff --stat HEAD~1"],
+                capture_output=True, text=True, timeout=30, cwd=state["cwd"],
+            )
+        )
+        if result.returncode != 0:
+            await update.message.reply_text("当前目录不是 Git 仓库或无提交历史")
+            return
+        output = result.stdout.strip()
+        if not output:
+            await update.message.reply_text("无变更")
+            return
+        full = await asyncio.to_thread(
+            lambda: subprocess.run(
+                [GIT_BASH_PATH, "-c", "git diff HEAD~1"],
+                capture_output=True, text=True, timeout=30, cwd=state["cwd"],
+            )
+        )
+        await send_result(update.effective_chat.id, f"{output}\n\n{full.stdout}", context)
+    except Exception as e:
+        await update.message.reply_text(f"执行失败: {e}")
+
+
+async def cmd_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = " ".join(context.args).strip() if context.args else ""
+    n = min(int(args), 100) if args.isdigit() else 30
+    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot.log")
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        tail = "".join(lines[-n:])
+        await send_result(update.effective_chat.id, tail or "(日志为空)", context)
+    except FileNotFoundError:
+        await update.message.reply_text("日志文件不存在")
+
+
+async def cmd_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    keyword = " ".join(context.args).strip() if context.args else ""
+    if not keyword:
+        await update.message.reply_text("用法: /search 关键词")
+        return
+    history = list(state["cmd_history"])
+    matches = [(i, msg) for i, msg in enumerate(history) if keyword.lower() in msg.lower()]
+    if not matches:
+        await update.message.reply_text(f"未找到包含「{html.escape(keyword)}」的记录", parse_mode="HTML")
+        return
+    lines = []
+    buttons = []
+    for i, msg in matches:
+        lines.append(f"{i+1}. {html.escape(msg[:60])}")
+        buttons.append([InlineKeyboardButton(
+            f"{i+1}. {msg[:40]}{'...' if len(msg) > 40 else ''}",
+            callback_data=f"resend:{i}",
+        )])
+    await update.message.reply_text(
+        f"🔍 搜索「{html.escape(keyword)}」({len(matches)} 条)：\n" + "\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+
+
+
+async def cmd_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = " ".join(context.args).strip() if context.args else ""
+    if not args:
+        await update.message.reply_text(
+            "用法:\n<code>/schedule 30m 请检查进度</code>\n"
+            "<code>/schedule list</code> 查看任务\n<code>/schedule clear</code> 清空任务\n"
+            "时间格式: 10s / 5m / 1h", parse_mode="HTML",
+        )
+        return
+    if args == "list":
+        tasks = [t for t in state["scheduled_tasks"] if not t["task"].done()]
+        state["scheduled_tasks"] = tasks
+        if not tasks:
+            await update.message.reply_text("无待执行的定时任务")
+            return
+        import datetime
+        lines = [f"{i+1}. [{datetime.datetime.fromtimestamp(t['fire_at']).strftime('%H:%M:%S')}] {t['text'][:50]}" for i, t in enumerate(tasks)]
+        await update.message.reply_text("\n".join(lines))
+        return
+    if args == "clear":
+        for t in state["scheduled_tasks"]:
+            if not t["task"].done():
+                t["task"].cancel()
+        count = len(state["scheduled_tasks"])
+        state["scheduled_tasks"] = []
+        await update.message.reply_text(f"已清空 {count} 个定时任务")
+        return
+    parts = args.split(None, 1)
+    if len(parts) < 2:
+        await update.message.reply_text("格式: /schedule 时间 消息内容")
+        return
+    time_str, text = parts
+    multiplier = {"s": 1, "m": 60, "h": 3600}.get(time_str[-1])
+    try:
+        val = int(time_str[:-1])
+    except ValueError:
+        val = 0
+    if not multiplier or val <= 0:
+        await update.message.reply_text("无效时间格式，示例: 10s / 5m / 1h")
+        return
+    delay = val * multiplier
+    fire_at = time.time() + delay
+    chat_id = update.effective_chat.id
+
+    async def _scheduled_send():
+        await asyncio.sleep(delay)
+        handle = await _get_handle()
+        if handle:
+            await asyncio.to_thread(send_keys_to_window, handle, text)
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=f"⏰ 定时消息已发送: {text[:80]}")
+            except Exception:
+                pass
+            if state["auto_monitor"]:
+                _start_monitor(handle, chat_id, context)
+
+    task = asyncio.create_task(_scheduled_send())
+    state["scheduled_tasks"].append({"text": text, "fire_at": fire_at, "task": task})
+    await update.message.reply_text(f"⏰ 已设定: {time_str} 后发送\n内容: {text[:80]}")
+
+
 async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     history = list(state["cmd_history"])
     if not history:

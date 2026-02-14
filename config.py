@@ -31,6 +31,14 @@ for _uid in os.environ.get("ALLOWED_USER_IDS", "").split(","):
             ALLOWED_USERS.add(int(_uid))
         except ValueError:
             print(f"警告: 无效的用户ID '{_uid}'，已跳过")
+READONLY_USERS = set()
+for _uid in os.environ.get("READONLY_USER_IDS", "").split(","):
+    _uid = _uid.strip()
+    if _uid:
+        try:
+            READONLY_USERS.add(int(_uid))
+        except ValueError:
+            print(f"警告: 无效的只读用户ID '{_uid}'，已跳过")
 SHELL_TIMEOUT = int(os.environ.get("SHELL_TIMEOUT", "120"))
 WORK_DIR = os.environ.get("WORK_DIR", str(Path.home()))
 SCREENSHOT_DELAY = int(os.environ.get("SCREENSHOT_DELAY", "15"))
@@ -38,6 +46,8 @@ SCREENSHOT_DELAY = int(os.environ.get("SCREENSHOT_DELAY", "15"))
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LABELS_FILE = os.path.join(_BASE_DIR, "window_labels.json")
 RECENT_DIRS_FILE = os.path.join(_BASE_DIR, "recent_dirs.json")
+TEMPLATES_FILE = os.path.join(_BASE_DIR, "templates.json")
+PANEL_FILE = os.path.join(_BASE_DIR, "panel.json")
 
 # ── 日志 ─────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -69,6 +79,13 @@ BOT_COMMANDS = [
     BotCommand("export", "导出最近对话记录"),
     BotCommand("undo", "发送 Ctrl+Z 撤销"),
     BotCommand("reload", "热重载配置"),
+    BotCommand("tpl", "消息模板管理"),
+    BotCommand("diff", "查看 Git 变更"),
+    BotCommand("log", "查看机器人日志"),
+    BotCommand("search", "搜索历史消息"),
+    BotCommand("schedule", "定时发送消息"),
+    BotCommand("panel", "自定义按钮面板"),
+    BotCommand("proj", "快速切换项目"),
 ]
 
 # ── 常驻按钮面板 ─────────────────────────────────────────────────
@@ -104,5 +121,8 @@ state = {
     "chat_id": None,
     "passive_monitor_task": None,
     "last_tg_msg_time": 0,
-    "session_cost": 0.0,
+    "session_costs": {},
+    "templates": {},
+    "scheduled_tasks": [],
+    "custom_panel": None,
 }

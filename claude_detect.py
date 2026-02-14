@@ -3,6 +3,7 @@ import os
 import json
 import glob
 import logging
+import time
 
 from pywinauto import Desktop
 
@@ -10,6 +11,9 @@ from config import SPINNER_CHARS, state
 from win32_api import get_window_title
 
 logger = logging.getLogger("bedcode")
+
+_windows_cache = []
+_windows_cache_time = 0
 
 
 def detect_claude_state(title: str) -> str:
@@ -85,6 +89,36 @@ def read_last_transcript_response() -> str:
     return ""
 
 
+def _decode_proj_dirname(d: str) -> str:
+    """Decode Claude project dir name like 'j-bedcode' -> 'j:\\bedcode'."""
+    parts = d.split("-")
+    if len(parts) >= 2 and len(parts[0]) == 1:
+        return parts[0] + ":\\" + "\\".join(parts[1:])
+    return d
+
+
+def _get_active_projects_detail(max_count: int = 8) -> list[dict]:
+    """Return [{name, dir_name, path}, ...] for recent projects."""
+    projects_dir = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+    if not os.path.isdir(projects_dir):
+        return []
+    all_jsonl = glob.glob(os.path.join(projects_dir, "*", "*.jsonl"))
+    if not all_jsonl:
+        return []
+    all_jsonl.sort(key=os.path.getmtime, reverse=True)
+    seen, result = [], []
+    for f in all_jsonl:
+        proj_dir = os.path.basename(os.path.dirname(f))
+        if proj_dir not in seen:
+            seen.append(proj_dir)
+            parts = proj_dir.split("-")
+            label = parts[-1] if parts else proj_dir
+            result.append({"name": label, "dir_name": proj_dir, "path": _decode_proj_dirname(proj_dir)})
+            if len(result) >= max_count:
+                break
+    return result
+
+
 def _get_active_projects(max_count: int = 10) -> list[str]:
     projects_dir = os.path.join(os.path.expanduser("~"), ".claude", "projects")
     if not os.path.isdir(projects_dir):
@@ -112,6 +146,9 @@ def _get_active_projects(max_count: int = 10) -> list[str]:
 
 
 def find_claude_windows() -> list[dict]:
+    global _windows_cache, _windows_cache_time
+    if time.time() - _windows_cache_time < 5:
+        return _windows_cache
     desktop = Desktop(backend="uia")
     results = []
     for w in desktop.windows():
@@ -131,4 +168,6 @@ def find_claude_windows() -> list[dict]:
             continue
     order = {"idle": 0, "thinking": 1, "unknown": 2}
     results.sort(key=lambda x: (order.get(x["state"], 9), -x["handle"]))
+    _windows_cache = results
+    _windows_cache_time = time.time()
     return results

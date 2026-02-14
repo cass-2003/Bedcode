@@ -11,7 +11,7 @@ from pathlib import Path
 from telegram import InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from config import state, LABELS_FILE, RECENT_DIRS_FILE
+from config import state, LABELS_FILE, RECENT_DIRS_FILE, TEMPLATES_FILE, PANEL_FILE
 from win32_api import get_window_title
 from claude_detect import find_claude_windows
 
@@ -143,6 +143,42 @@ def _save_labels():
             json.dump({str(k): v for k, v in state["window_labels"].items()}, f, ensure_ascii=False)
     except Exception as e:
         logger.warning(f"保存标签失败: {e}")
+
+
+def _load_templates() -> dict:
+    if os.path.exists(TEMPLATES_FILE):
+        try:
+            with open(TEMPLATES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"加载模板失败: {e}")
+    return {}
+
+
+def _save_templates():
+    try:
+        with open(TEMPLATES_FILE, "w", encoding="utf-8") as f:
+            json.dump(state["templates"], f, ensure_ascii=False)
+    except Exception as e:
+        logger.warning(f"保存模板失败: {e}")
+
+
+def _load_panel() -> list[list[str]] | None:
+    if os.path.exists(PANEL_FILE):
+        try:
+            with open(PANEL_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"加载面板失败: {e}")
+    return None
+
+
+def _save_panel(rows):
+    try:
+        with open(PANEL_FILE, "w", encoding="utf-8") as f:
+            json.dump(rows, f, ensure_ascii=False)
+    except Exception as e:
+        logger.warning(f"保存面板失败: {e}")
 
 
 def _load_recent_dirs() -> list[str]:
