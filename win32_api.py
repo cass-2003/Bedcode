@@ -295,13 +295,8 @@ def send_ctrl_c(handle: int) -> bool:
     try:
         if not _activate_window(handle):
             logger.warning(f"无法激活窗口 {handle}，但仍尝试发送 Ctrl+C")
-        inputs = (INPUT * 4)(
-            _make_key_input(vk=VK_CONTROL),
-            _make_key_input(vk=0x43),  # 'C'
-            _make_key_input(vk=0x43, flags=KEYEVENTF_KEYUP),
-            _make_key_input(vk=VK_CONTROL, flags=KEYEVENTF_KEYUP),
-        )
-        user32.SendInput(4, ctypes.byref(inputs), ctypes.sizeof(INPUT))
+        from pywinauto.keyboard import send_keys
+        send_keys("^c")
         logger.info("已发送 Ctrl+C")
         return True
     except Exception as e:
@@ -314,14 +309,13 @@ def send_ctrl_z(handle: int) -> bool:
     try:
         if not _activate_window(handle):
             logger.warning(f"无法激活窗口 {handle}，但仍尝试发送 Ctrl+Z")
-        inputs = (INPUT * 4)(
-            _make_key_input(vk=VK_CONTROL),
-            _make_key_input(vk=0x5A),  # 'Z'
-            _make_key_input(vk=0x5A, flags=KEYEVENTF_KEYUP),
-            _make_key_input(vk=VK_CONTROL, flags=KEYEVENTF_KEYUP),
-        )
-        user32.SendInput(4, ctypes.byref(inputs), ctypes.sizeof(INPUT))
+        from pywinauto.keyboard import send_keys
+        send_keys("^z")
         logger.info("已发送 Ctrl+Z")
+        return True
+    except Exception as e:
+        logger.exception(f"Ctrl+Z 发送失败: {e}")
+        return False
         return True
     except Exception as e:
         logger.exception(f"Ctrl+Z 发送失败: {e}")
