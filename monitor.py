@@ -160,7 +160,7 @@ async def _monitor_loop(
             await asyncio.sleep(1.5)
 
             if time.time() - start_time > max_duration:
-                await _update_status(chat_id, "⏰ 监控超时 (60分钟)，已自动停止", context)
+                await _update_status(chat_id, "⏰ 监控已运行60分钟，自动停止。发 /watch 继续监控或 /screenshot 查看状态", context)
                 break
 
             title = await asyncio.to_thread(get_window_title, handle)
@@ -470,9 +470,11 @@ async def _passive_monitor_loop(app) -> None:
                                 await app.bot.send_message(chat_id=chat_id, text=f"🔇 [{label}] 完成（静默时段）", disable_notification=True)
                                 ws["was_thinking"] = False; ws["idle_count"] = 0; continue
 
-                        # 智能通知: 5分钟内没有 TG 消息则静默（用户在电脑前）
+                        # 智能通知: 5分钟内没有 TG 消息则静默通知（不丢弃结果）
                         if time.time() - state.get("last_tg_msg_time", 0) > 300:
-                            logger.info("[被动监控] 用户不在 TG，静默跳过")
+                            logger.info("[被动监控] 用户不在 TG，静默通知")
+                            await app.bot.send_message(chat_id=chat_id, text=f"📌 [{label}] 完成（静默）", disable_notification=True)
+                            await _forward_result(chat_id, handle, app)
                             ws["was_thinking"] = False; ws["idle_count"] = 0; continue
 
                         await app.bot.send_message(chat_id=chat_id, text=f"📌{label} 完成")

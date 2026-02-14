@@ -120,7 +120,7 @@ async def _ocr_extract(img_data: bytes) -> str:
 async def cmd_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     handle = await _get_handle()
     if not handle:
-        await update.message.reply_text("未找到窗口，先 /windows")
+        await update.message.reply_text("未找到窗口，发 /windows 扫描或 /new 启动新实例")
         return
     img_data = await asyncio.to_thread(capture_window_screenshot, handle)
     if img_data:
@@ -140,7 +140,7 @@ async def cmd_ocr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Take screenshot and send OCR text only (no image)."""
     handle = await _get_handle()
     if not handle:
-        await update.message.reply_text("未找到窗口，先 /windows")
+        await update.message.reply_text("未找到窗口，发 /windows 扫描或 /new 启动新实例")
         return
     img_data = await asyncio.to_thread(capture_window_screenshot, handle)
     if not img_data:
@@ -156,7 +156,7 @@ async def cmd_ocr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_grab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     handle = await _get_handle()
     if not handle:
-        await update.message.reply_text("未找到窗口，先 /windows")
+        await update.message.reply_text("未找到窗口，发 /windows 扫描或 /new 启动新实例")
         return
     title = await asyncio.to_thread(get_window_title, handle)
     st = detect_claude_state(title)
@@ -234,7 +234,7 @@ async def cmd_key(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def _quick_screenshot(handle: int, chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await asyncio.sleep(3)
+    await asyncio.sleep(0.5)
     img_data = await asyncio.to_thread(capture_window_screenshot, handle)
     if img_data:
         try:
@@ -246,7 +246,7 @@ async def _quick_screenshot(handle: int, chat_id: int, context: ContextTypes.DEF
 async def cmd_watch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     handle = await _get_handle()
     if not handle:
-        await update.message.reply_text("未找到窗口，先 /windows")
+        await update.message.reply_text("未找到窗口，发 /windows 扫描或 /new 启动新实例")
         return
     _start_monitor(handle, update.effective_chat.id, context)
     await update.message.reply_text("监控已启动")
@@ -263,7 +263,7 @@ async def cmd_break(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     handle = await _get_handle()
     if not handle:
-        await update.message.reply_text("未找到窗口，先 /windows")
+        await update.message.reply_text("未找到窗口，发 /windows 扫描或 /new 启动新实例")
         return
     success = await asyncio.to_thread(send_ctrl_c, handle)
     _cancel_monitor()
@@ -308,7 +308,7 @@ async def cmd_undo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     handle = await _get_handle()
     if not handle:
-        await update.message.reply_text("未找到窗口，先 /windows")
+        await update.message.reply_text("未找到窗口，发 /windows 扫描或 /new 启动新实例")
         return
     success = await asyncio.to_thread(send_ctrl_z, handle)
     await update.message.reply_text("↩️ Ctrl+Z 已发送" if success else "❌ 发送失败")
