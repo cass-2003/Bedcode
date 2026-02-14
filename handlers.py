@@ -271,16 +271,22 @@ async def cmd_break(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_cost(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    costs = state.get("session_costs", {})
-    labels = state.get("window_labels", {})
-    lines = ["💰 会话费用:"]
-    total = 0.0
-    for h, c in costs.items():
-        total += c
-        label = labels.get(h, f"窗口{h}")
-        lines.append(f"📌{label}: ${c:.4f}")
-    lines.append("──────")
-    lines.append(f"总计: ${total:.4f}")
+    from claude_detect import calc_session_cost
+    info = await asyncio.to_thread(calc_session_cost)
+    if not info.get("turns"):
+        await update.message.reply_text("📭 暂无费用数据")
+        return
+    lines = [
+        "💰 会话费用:",
+        f"🤖 模型: {info.get('model', 'unknown')}",
+        f"📊 轮次: {info['turns']}",
+        f"📥 输入: {info.get('input_tokens', 0):,} tokens",
+        f"📤 输出: {info.get('output_tokens', 0):,} tokens",
+        f"💾 缓存读: {info.get('cache_read', 0):,} tokens",
+        f"💾 缓存写: {info.get('cache_create', 0):,} tokens",
+        "──────",
+        f"💵 总计: ${info['cost']:.4f}",
+    ]
     await update.message.reply_text("\n".join(lines))
 
 

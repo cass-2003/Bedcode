@@ -224,14 +224,9 @@ async def history():
 
 @router.get("/cost")
 async def cost():
-    costs = state.get("session_costs", {})
-    labels = state.get("window_labels", {})
-    items = []
-    total = 0.0
-    for h, c in costs.items():
-        total += c
-        items.append({"handle": h, "label": labels.get(h, ""), "cost": round(c, 4)})
-    return {"items": items, "total": round(total, 4)}
+    from claude_detect import calc_session_cost
+    info = await asyncio.to_thread(calc_session_cost)
+    return info
 
 
 @router.get("/export")

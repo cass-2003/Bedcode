@@ -151,6 +151,79 @@ def _get_active_projects(max_count: int = 10) -> list[str]:
     return result
 
 
+# ── 费用计算 ─────────────────────────────────────────────────────
+# Anthropic pricing per million tokens (Claude Opus 4 / Sonnet 4)
+_PRICING = {
+    "claude-opus-4": {"input": 15, "output": 75, "cache_read": 1.5, "cache_create": 18.75},
+    "claude-sonnet-4": {"input": 3, "output": 15, "cache_read": 0.3, "cache_create": 3.75},
+}
+
+
+def _get_pricing(model: str) -> dict:
+    for prefix, p in _PRICING.items():
+        if model.startswith(prefix):
+            return p
+    return _PRICING["claude-opus-4"]  # fallback
+
+
+def calc_session_cost() -> dict:
+    """Parse the most recent JSONL transcript and sum token costs.
+    Returns {"input_tokens":int, "output_tokens":int, "cache_read":int, "cache_create":int, "cost":float, "model":str, "turns":int}.
+    """
+    claude_dir = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+    all_jsonl = glob.glob(os.path.join(claude_dir, "**", "*.jsonl"), recursive=True)
+    all_jsonl = [f for f in all_jsonl if "subagent" not in f]
+    if not all_jsonl:
+        return {"cost": 0.0, "turns": 0}
+    latest = max(all_jsonl, key=os.path.getmtime)
+    total_in = total_out = total_cache_read = total_cache_create = 0
+    turns = 0
+    model_name = ""
+    try:
+        with open(latest, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                if d.get("type") != "assistant":
+                    continue
+                m = d.get("message", {})
+                if not isinstance(m, dict):
+                    continue
+                usage = m.get("usage")
+                if not usage:
+                    continue
+                if not model_name:
+                    model_name = m.get("model", "")
+                total_in += usage.get("input_tokens", 0)
+                total_out += usage.get("output_tokens", 0)
+                total_cache_read += usage.get("cache_read_input_tokens", 0)
+                total_cache_create += usage.get("cache_creation_input_tokens", 0)
+                turns += 1
+    except Exception:
+        return {"cost": 0.0, "turns": 0}
+    p = _get_pricing(model_name)
+    cost = (
+        total_in * p["input"] / 1_000_000
+        + total_out * p["output"] / 1_000_000
+        + total_cache_read * p["cache_read"] / 1_000_000
+        + total_cache_create * p["cache_create"] / 1_000_000
+    )
+    return {
+        "input_tokens": total_in,
+        "output_tokens": total_out,
+        "cache_read": total_cache_read,
+        "cache_create": total_cache_create,
+        "cost": round(cost, 4),
+        "model": model_name,
+        "turns": turns,
+    }
+
+
 def find_claude_windows() -> list[dict]:
     global _windows_cache, _windows_cache_time
     if time.time() - _windows_cache_time < 5:
