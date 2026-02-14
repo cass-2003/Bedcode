@@ -220,6 +220,7 @@ async function doSend() {
       const r = await fetch(API+'/api/image', {method:'POST', headers:{'Authorization':'Bearer '+TOKEN}, body:fd});
       const j = await r.json();
       if (j.status==='sent') { toast('🖼 已发送'); addMsg('🖼 '+(text||'图片'), 'sent'); startPoll(); }
+      else if (j.status==='queued') { toast('📋 图片已排队 #'+j.position); addMsg('🖼 '+(text||'图片')+' (排队)', 'sent'); }
       else toast(j.message||'失败');
     } catch(e) { toast('上传失败'); }
     return;

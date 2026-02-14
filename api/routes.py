@@ -313,7 +313,6 @@ async def upload_image(file: UploadFile = File(...), caption: str = Form("")):
     logger = logging.getLogger("bedcode")
     handle = await _get_handle()
     if not handle:
-        logger.warning("[API/image] No active window")
         return {"status": "error", "message": "No active window"}
     img_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "images")
     os.makedirs(img_dir, exist_ok=True)
@@ -321,21 +320,32 @@ async def upload_image(file: UploadFile = File(...), caption: str = Form("")):
     data = await file.read()
     with open(filepath, "wb") as f:
         f.write(data)
-    logger.info(f"[API/image] 图片已保存: {filepath} ({len(data)} bytes)")
+    logger.info(f"[API/image] saved: {filepath} ({len(data)} bytes)")
     text = caption or "请分析这个图片"
-    # 与 TG handle_photo 完全一致的逻辑
-    if handle and not state.get("stream_mode"):
+    # 检查 Claude 状态
+    title = await asyncio.to_thread(get_window_title, handle)
+    st = detect_claude_state(title)
+    # thinking 时无法 Alt+V，降级为路径注入排队
+    if st == "thinking":
+        inject_text = f"{text} {filepath}"
+        if len(state["msg_queue"]) >= 50:
+            return {"status": "error", "message": "Queue full"}
+        state["msg_queue"].append(inject_text)
+        logger.info(f"[API/image] thinking, queued path: {inject_text[:60]}")
+        return {"status": "queued", "position": len(state["msg_queue"])}
+    # idle 时尝试 Alt+V 粘贴
+    if not state.get("stream_mode"):
         copied = await asyncio.to_thread(copy_image_to_clipboard, filepath)
-        logger.info(f"[API/image] copy_to_clipboard: {copied}")
+        logger.info(f"[API/image] clipboard: {copied}")
         if copied:
             pasted = await asyncio.to_thread(paste_image_to_window, handle)
-            logger.info(f"[API/image] paste_to_window: {pasted}")
+            logger.info(f"[API/image] paste: {pasted}")
             if pasted:
                 await asyncio.to_thread(send_keys_to_window, handle, text)
-                logger.info(f"[API/image] send_keys: {text[:50]}")
+                logger.info(f"[API/image] keys: {text[:50]}")
                 return {"status": "sent", "method": "paste"}
     # 降级：路径注入
     inject_text = f"{text} {filepath}"
     await asyncio.to_thread(send_keys_to_window, handle, inject_text)
-    logger.info(f"[API/image] fallback: {inject_text[:60]}")
+    logger.info(f"[API/image] fallback path: {inject_text[:60]}")
     return {"status": "sent", "method": "path"}
