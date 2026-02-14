@@ -345,7 +345,7 @@ async def cmd_windows(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(buttons),
     )
-    for i, w in enumerate(windows):
+    for i, w in enumerate(windows[:3]):
         img_data = await asyncio.to_thread(capture_window_screenshot, w["handle"])
         if img_data:
             label = w.get("label", "") or f"#{i+1}"
@@ -354,6 +354,8 @@ async def cmd_windows(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 photo=img_data,
                 caption=f"{label} [{st_label}]",
             )
+    if len(windows) > 3:
+        await update.message.reply_text(f"📸 仅显示前 3 个窗口截图（共 {len(windows)} 个）")
 
 
 async def cmd_new(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1167,7 +1169,7 @@ async def cmd_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         val = int(time_str[:-1])
     except ValueError:
         val = 0
-    if not multiplier or val <= 0:
+    if not multiplier or val <= 0 or val > 720:
         await update.message.reply_text("无效时间格式，示例: 10s / 5m / 1h")
         return
     delay = val * multiplier

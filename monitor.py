@@ -289,9 +289,11 @@ async def _monitor_loop(
                             send_keys_to_window, handle, next_msg
                         )
                         if not success:
+                            async with _queue_lock:
+                                state["msg_queue"].appendleft(next_msg)
                             await _update_status(
                                 chat_id,
-                                "❌ 排队消息发送失败，窗口可能已关闭",
+                                "❌ 排队消息发送失败，已放回队列。窗口可能已关闭",
                                 context,
                             )
                             break
@@ -465,6 +467,7 @@ async def _passive_monitor_loop(app) -> None:
                             hour = time.localtime().tm_hour
                             in_quiet = (hour >= qs or hour < qe) if qs > qe else (qs <= hour < qe)
                             if in_quiet:
+                                await app.bot.send_message(chat_id=chat_id, text=f"🔇 [{label}] 完成（静默时段）", disable_notification=True)
                                 ws["was_thinking"] = False; ws["idle_count"] = 0; continue
 
                         # 智能通知: 5分钟内没有 TG 消息则静默（用户在电脑前）
