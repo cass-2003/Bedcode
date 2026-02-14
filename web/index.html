@@ -4,197 +4,244 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#111">
+<meta name="theme-color" content="#0a0a0a">
 <link rel="manifest" href="/manifest.json">
 <title>BedCode</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#111;--surface:#1a1a1a;--border:#333;--accent:#e94560;--text:#e0e0e0;--dim:#777;--ok:#4ecca3;--warn:#f0a500;--btn:#2a2a2a;--input-bg:#0a0a0a}
-[data-theme="light"]{--bg:#f5f5f5;--surface:#fff;--border:#ddd;--accent:#d63050;--text:#222;--dim:#888;--ok:#2a9d6a;--warn:#c08800;--btn:#e8e8e8;--input-bg:#fff}
-body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden}
-header{background:var(--surface);padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
-header .dot{width:10px;height:10px;border-radius:50%;background:#666}
-header .dot.on{background:var(--ok)}
-header .title{flex:1;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-header .state{font-size:12px;padding:2px 8px;border-radius:10px;background:var(--btn)}
-header .state.thinking{background:var(--warn);color:#000}
-#theme-btn{background:none;border:none;color:var(--dim);font-size:16px;cursor:pointer;padding:4px}
-#main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
-#screenshot-area{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000;position:relative;min-height:0}
-[data-theme="light"] #screenshot-area{background:#e0e0e0}
-#screenshot-area img{max-width:100%;max-height:100%;object-fit:contain}
-#screenshot-area .placeholder{color:var(--dim);font-size:14px}
-#text-panel{height:0;overflow-y:auto;background:var(--surface);border-top:1px solid var(--border);transition:height .2s;font-family:monospace;font-size:13px;padding:0;white-space:pre-wrap;word-break:break-all}
-#text-panel.open{height:40%;padding:8px}
-#msg-log{max-height:120px;overflow-y:auto;background:var(--surface);border-top:1px solid var(--border);padding:4px 8px;flex-shrink:0;font-size:13px}
-#msg-log:empty{display:none}
-#msg-log .msg{padding:3px 0;border-bottom:1px solid var(--border)}
-#msg-log .msg .time{color:var(--dim);font-size:11px;margin-right:6px}
-#msg-log .msg .dir{margin-right:4px}
-#msg-log .msg.sent .dir{color:var(--ok)}
-#msg-log .msg.recv .dir{color:var(--accent);cursor:pointer}
-#msg-log .msg.recv{cursor:pointer}
-#toggle-text{position:absolute;bottom:4px;right:4px;background:var(--btn);border:none;color:var(--text);padding:4px 10px;border-radius:12px;font-size:11px;cursor:pointer;z-index:2;opacity:.7}
-.toolbar{display:flex;gap:6px;padding:6px 8px;background:var(--surface);border-top:1px solid var(--border);flex-wrap:wrap;flex-shrink:0}
-.toolbar button{background:var(--btn);border:none;color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer;flex:1;min-width:60px;max-width:120px}
-.toolbar button:active{opacity:.7}
-.toolbar button.danger{background:var(--accent);color:#fff}
-#input-bar{display:flex;gap:6px;padding:6px 8px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;align-items:flex-end}
-#input-bar input{flex:1;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-size:14px;outline:none}
-#input-bar input:focus{border-color:var(--accent)}
-#input-bar button{background:var(--accent);border:none;color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer}
-#img-preview{display:none;align-items:center;gap:6px;padding:4px 8px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;font-size:12px}
-#img-preview img{height:40px;border-radius:4px}
-#img-preview .remove{color:var(--accent);cursor:pointer;font-size:16px}
-#toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;display:none;z-index:99}
-#windows-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10;align-items:center;justify-content:center}
-#windows-modal.open{display:flex}
-#windows-modal .panel{background:var(--surface);border-radius:12px;padding:16px;width:90%;max-width:400px;max-height:70vh;overflow-y:auto}
-#windows-modal .panel h3{margin-bottom:12px;font-size:16px}
-#windows-modal .win-item{padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer}
-#windows-modal .win-item:active{background:var(--btn)}
-#windows-modal .win-item.current{border-color:var(--ok)}
-#windows-modal .win-item .wt{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#windows-modal .win-item .ws{font-size:11px;color:var(--dim)}
-.close-btn{float:right;background:none;border:none;color:var(--dim);font-size:20px;cursor:pointer}
+:root{--bg:#0a0a0a;--surface:#161616;--surface2:#1e1e1e;--border:#2a2a2a;--accent:#c45;--text:#d4d4d4;--text2:#999;--sent-bg:#2a2a2a;--recv-bg:#1a1a1a;--hover:#222}
+[data-theme="light"]{--bg:#fafafa;--surface:#fff;--surface2:#f0f0f0;--border:#e0e0e0;--accent:#c45;--text:#333;--text2:#888;--sent-bg:#e8e8e8;--recv-bg:#fff;--hover:#f0f0f0}
+body{font-family:-apple-system,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+/* Header */
+.header{background:var(--surface);padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.header .dot{width:8px;height:8px;border-radius:50%;background:#555;flex-shrink:0}
+.header .dot.on{background:#4a4}
+.header .info{flex:1;min-width:0}
+.header .title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.header .subtitle{font-size:11px;color:var(--text2);margin-top:1px}
+.header .badge{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--surface2);color:var(--text2);font-weight:500}
+.header .badge.active{background:#f0a500;color:#000}
+.header button{background:none;border:none;color:var(--text2);font-size:15px;cursor:pointer;padding:4px 6px;border-radius:6px}
+.header button:hover{background:var(--hover)}
+
+/* Chat area */
+#chat{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.bubble{max-width:85%;padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.5;word-break:break-word;position:relative}
+.bubble.sent{align-self:flex-end;background:var(--sent-bg);border-bottom-right-radius:4px}
+.bubble.recv{align-self:flex-start;background:var(--recv-bg);border:1px solid var(--border);border-bottom-left-radius:4px;cursor:pointer}
+.bubble .meta{font-size:11px;color:var(--text2);margin-top:4px}
+.bubble img{max-width:100%;border-radius:8px;margin-top:6px;cursor:pointer}
+.bubble pre{background:var(--bg);padding:8px;border-radius:6px;overflow-x:auto;font-size:12px;margin-top:6px;font-family:'SF Mono',Consolas,monospace}
+.bubble.system{align-self:center;background:none;color:var(--text2);font-size:12px;padding:4px 0}
+
+/* Screenshot overlay */
+#ss-area{display:none;position:relative;flex-shrink:0;background:#000;border-top:1px solid var(--border);max-height:40vh;overflow:hidden}
+[data-theme="light"] #ss-area{background:#e8e8e8}
+#ss-area img{width:100%;height:100%;object-fit:contain;max-height:40vh}
+#ss-area .close{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* Text panel */
+#text-panel{height:0;overflow-y:auto;background:var(--surface);border-top:1px solid var(--border);transition:height .2s;font-family:'SF Mono',Consolas,monospace;font-size:12px;padding:0;white-space:pre-wrap;word-break:break-all;color:var(--text2)}
+#text-panel.open{height:30vh;padding:10px 14px}
+
+/* Quick actions */
+.actions{display:flex;gap:4px;padding:6px 12px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.actions button{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.actions button:active{opacity:.7}
+.actions button.danger{border-color:var(--accent);color:var(--accent)}
+
+/* Image preview */
+#img-preview{display:none;align-items:center;gap:8px;padding:6px 14px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+#img-preview img{height:36px;border-radius:6px}
+#img-preview .name{font-size:12px;color:var(--text2);flex:1}
+#img-preview .rm{color:var(--accent);cursor:pointer;font-size:14px;padding:4px}
+
+/* Input */
+.input-row{display:flex;gap:8px;padding:8px 12px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;align-items:flex-end}
+.input-row input{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:22px;font-size:14px;outline:none}
+.input-row input:focus{border-color:#555}
+[data-theme="light"] .input-row input:focus{border-color:#aaa}
+.input-row .send{background:var(--accent);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.input-row .send:active{opacity:.8}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:14px;padding:16px;width:90%;max-width:380px;max-height:70vh;overflow-y:auto;border:1px solid var(--border)}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:12px}
+.modal .item{padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;font-size:13px}
+.modal .item:active{background:var(--hover)}
+.modal .item.current{border-color:#4a4}
+.modal .item .sub{font-size:11px;color:var(--text2);margin-top:2px}
+.modal .close{float:right;background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer}
+
+#toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;display:none;z-index:99;backdrop-filter:blur(4px)}
 </style>
 </head>
 <body>
 
-<header>
+<div class="header">
   <div class="dot" id="conn-dot"></div>
-  <div class="title" id="hdr-title">BedCode</div>
-  <div class="state" id="hdr-state">--</div>
-  <button id="theme-btn">🌙</button>
-</header>
-
-<div id="main">
-  <div id="screenshot-area">
-    <span class="placeholder" id="ss-placeholder">点击「截屏」获取画面</span>
-    <img id="ss-img" style="display:none" alt="screenshot">
-    <button id="toggle-text">终端文本</button>
+  <div class="info">
+    <div class="title" id="hdr-title">BedCode</div>
+    <div class="subtitle" id="hdr-sub">远程控制台</div>
   </div>
-  <div id="text-panel"></div>
+  <span class="badge" id="hdr-state">--</span>
+  <button id="ss-btn" title="截图">🖥</button>
+  <button id="txt-btn" title="终端">⌨</button>
+  <button id="theme-btn">🌙</button>
 </div>
 
-<div id="msg-log"></div>
+<div id="chat"></div>
 
-<div class="toolbar">
+<div id="ss-area">
+  <img id="ss-img" alt="screenshot">
+  <button class="close" onclick="document.getElementById('ss-area').style.display='none'">×</button>
+</div>
+
+<div id="text-panel"></div>
+
+<div class="actions">
   <button onclick="doScreenshot()">📷 截屏</button>
   <button onclick="doWindows()">🪟 窗口</button>
-  <button onclick="doBreak()" class="danger">⏹ 中断</button>
-  <button onclick="doUndo()">↩ 撤销</button>
   <button onclick="doGrab()">📋 抓取</button>
-  <button onclick="doRefresh()">🔄 状态</button>
+  <button onclick="doRefresh()">🔄 刷新</button>
+  <button onclick="doUndo()">↩ 撤销</button>
+  <button onclick="doBreak()" class="danger">⏹ 中断</button>
 </div>
 
-<div id="img-preview"><img id="img-preview-thumb"><span class="remove" onclick="clearPendingImage()">✕</span><span id="img-preview-name"></span></div>
+<div id="img-preview"><img id="img-thumb"><span class="name" id="img-name"></span><span class="rm" onclick="clearImage()">✕</span></div>
 
-<div id="input-bar">
-  <input id="msg-input" placeholder="输入消息发送给 Claude..." autocomplete="off">
-  <button onclick="doSend()">发送</button>
+<div class="input-row">
+  <input id="msg-input" placeholder="发消息给 Claude..." autocomplete="off">
+  <button class="send" onclick="doSend()">↑</button>
 </div>
 
-<div id="windows-modal"><div class="panel"><button class="close-btn" onclick="closeWindows()">×</button><h3>🪟 窗口列表</h3><div id="win-list"></div></div></div>
+<div class="modal-bg" id="win-modal"><div class="modal"><button class="close" onclick="closeWin()">×</button><h3>窗口列表</h3><div id="win-list"></div></div></div>
 <div id="toast"></div>
 
 <script>
 const API = location.origin;
 let TOKEN = localStorage.getItem('bedcode_token') || '';
-let ws = null;
-let reconnectTimer = null;
-let _pendingImage = null;
+let ws = null, reconnTimer = null, _pendImg = null;
 
 // ── Theme ──
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('bedcode_theme', t);
   document.getElementById('theme-btn').textContent = t === 'dark' ? '🌙' : '☀️';
-  document.querySelector('meta[name="theme-color"]').content = t === 'dark' ? '#111' : '#f5f5f5';
 }
 setTheme(localStorage.getItem('bedcode_theme') || 'dark');
-document.getElementById('theme-btn').onclick = () => {
+document.getElementById('theme-btn').onclick = () =>
   setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-};
 
 // ── Auth ──
-if (!TOKEN) {
-  TOKEN = prompt('输入 API Token:') || '';
-  if (TOKEN) localStorage.setItem('bedcode_token', TOKEN);
-}
-
-const authHeaders = () => ({'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json'});
+if (!TOKEN) { TOKEN = prompt('输入 API Token:') || ''; if (TOKEN) localStorage.setItem('bedcode_token', TOKEN); }
+const authH = () => ({'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'});
 
 // ── Toast ──
-function toast(msg, ms=1500) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.style.display = 'block';
-  setTimeout(() => el.style.display = 'none', ms);
+function toast(m, ms=1500) { const e=document.getElementById('toast'); e.textContent=m; e.style.display='block'; setTimeout(()=>e.style.display='none',ms); }
+
+// ── Chat bubbles ──
+let _msgs = JSON.parse(localStorage.getItem('bedcode_chat') || '[]');
+
+function addMsg(text, dir, extra) {
+  const t = new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+  const m = {t, d: dir, x: text.substring(0,3000), ...extra};
+  _msgs.push(m);
+  if (_msgs.length > 80) _msgs = _msgs.slice(-50);
+  localStorage.setItem('bedcode_chat', JSON.stringify(_msgs));
+  renderChat();
 }
 
-// ── API calls ──
+function renderChat() {
+  const c = document.getElementById('chat');
+  c.innerHTML = '';
+  _msgs.slice(-50).forEach(m => {
+    const div = document.createElement('div');
+    if (m.d === 'sys') {
+      div.className = 'bubble system';
+      div.textContent = m.x;
+    } else {
+      div.className = 'bubble ' + m.d;
+      let html = esc(m.x);
+      if (m.img) html = `<img src="${m.img}" alt="screenshot">`;
+      html += `<div class="meta">${m.t}</div>`;
+      div.innerHTML = html;
+      if (m.d === 'recv') {
+        div.onclick = () => {
+          const p = document.getElementById('text-panel');
+          p.textContent = m.x;
+          p.classList.add('open');
+        };
+      }
+    }
+    c.appendChild(div);
+  });
+  c.scrollTop = c.scrollHeight;
+}
+
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ── API ──
 async function api(path, opts={}) {
   try {
-    const r = await fetch(API + '/api' + path, {headers: authHeaders(), ...opts});
-    if (r.status === 401) { toast('Token 无效'); return null; }
+    const r = await fetch(API+'/api'+path, {headers:authH(), ...opts});
+    if (r.status===401) { toast('Token 无效'); return null; }
     if (r.headers.get('content-type')?.includes('image')) return r;
     return await r.json();
   } catch(e) { toast('请求失败'); return null; }
 }
 
 async function doScreenshot() {
-  const r = await fetch(API + '/api/screenshot', {headers: authHeaders()});
+  const r = await fetch(API+'/api/screenshot', {headers:authH()});
   if (!r.ok) { toast('截屏失败'); return; }
   const blob = await r.blob();
-  showImage(URL.createObjectURL(blob));
+  showSS(URL.createObjectURL(blob));
+}
+
+function showSS(src) {
+  const area = document.getElementById('ss-area');
+  document.getElementById('ss-img').src = src;
+  area.style.display = 'block';
 }
 
 async function doSend() {
   const input = document.getElementById('msg-input');
   const text = input.value.trim();
-  // Image + optional text
-  if (_pendingImage) {
+  if (_pendImg) {
     const fd = new FormData();
-    fd.append('file', _pendingImage.blob, _pendingImage.name);
+    fd.append('file', _pendImg.blob, _pendImg.name);
     fd.append('caption', text);
-    input.value = '';
-    clearPendingImage();
-    toast('📤 上传图片...');
+    input.value = ''; clearImage();
+    toast('📤 上传中...');
     try {
-      const r = await fetch(API + '/api/image', {method:'POST', headers:{'Authorization':'Bearer '+TOKEN}, body:fd});
+      const r = await fetch(API+'/api/image', {method:'POST', headers:{'Authorization':'Bearer '+TOKEN}, body:fd});
       const j = await r.json();
-      if (j.status === 'sent') { toast('🖼 已发送'); logMsg('🖼 ' + (text || '图片'), 'sent'); startAutoRefresh(); }
-      else toast(j.message || '发送失败');
-    } catch(err) { toast('上传失败: ' + err.message); }
+      if (j.status==='sent') { toast('🖼 已发送'); addMsg('🖼 '+(text||'图片'), 'sent'); startPoll(); }
+      else toast(j.message||'失败');
+    } catch(e) { toast('上传失败'); }
     return;
   }
   if (!text) return;
   input.value = '';
-  const r = await api('/send', {method:'POST', body: JSON.stringify({text})});
+  const r = await api('/send', {method:'POST', body:JSON.stringify({text})});
   if (!r) return;
-  if (r.status === 'sent') { toast('✅ 已发送'); logMsg(text, 'sent'); startAutoRefresh(); }
-  else if (r.status === 'queued') toast('📋 已排队 #' + r.position);
-  else toast(r.message || '发送失败');
+  if (r.status==='sent') { addMsg(text,'sent'); startPoll(); }
+  else if (r.status==='queued') { addMsg(text,'sent'); toast('📋 排队 #'+r.position); }
+  else toast(r.message||'发送失败');
 }
 
-async function doBreak() {
-  const r = await api('/break', {method:'POST'});
-  if (r?.status === 'ok') toast('⏹ 已中断');
-}
-
-async function doUndo() {
-  const r = await api('/undo', {method:'POST'});
-  if (r?.status === 'ok') toast('↩ 已撤销');
-}
+async function doBreak() { const r=await api('/break',{method:'POST'}); if(r?.status==='ok') toast('⏹ 已中断'); }
+async function doUndo() { const r=await api('/undo',{method:'POST'}); if(r?.status==='ok') toast('↩ 已撤销'); }
 
 async function doGrab() {
   const r = await api('/grab');
   if (!r) return;
   if (r.text && r.text.trim().length > 10) {
-    const panel = document.getElementById('text-panel');
-    panel.textContent = r.text;
-    panel.classList.add('open');
+    document.getElementById('text-panel').textContent = r.text;
+    document.getElementById('text-panel').classList.add('open');
   }
 }
 
@@ -210,207 +257,112 @@ async function doWindows() {
   if (!r) return;
   const list = document.getElementById('win-list');
   list.innerHTML = '';
-  if (!r.windows.length) { list.innerHTML = '<p style="color:var(--dim)">未找到窗口</p>'; }
+  if (!r.windows.length) { list.innerHTML='<p style="color:var(--text2)">无窗口</p>'; }
   r.windows.forEach(w => {
     const div = document.createElement('div');
-    div.className = 'win-item' + (w.current ? ' current' : '');
-    div.innerHTML = `<div class="wt">${w.label ? '📌'+w.label+' ' : ''}${esc(w.title)}</div><div class="ws">${w.state} | ${w.handle}</div>`;
-    div.onclick = async () => {
-      await api('/target', {method:'POST', body: JSON.stringify({handle: w.handle})});
-      toast('已切换');
-      closeWindows();
-      doRefresh();
-    };
+    div.className = 'item'+(w.current?' current':'');
+    div.innerHTML = `<div>${w.label?'📌'+w.label+' ':''}${esc(w.title)}</div><div class="sub">${w.state} · ${w.handle}</div>`;
+    div.onclick = async () => { await api('/target',{method:'POST',body:JSON.stringify({handle:w.handle})}); toast('已切换'); closeWin(); doRefresh(); };
     list.appendChild(div);
   });
-  document.getElementById('windows-modal').classList.add('open');
+  document.getElementById('win-modal').classList.add('open');
 }
-
-function closeWindows() { document.getElementById('windows-modal').classList.remove('open'); }
-
-function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function closeWin() { document.getElementById('win-modal').classList.remove('open'); }
 
 // ── Pending image ──
-function setPendingImage(blob, name) {
-  _pendingImage = {blob, name};
-  const prev = document.getElementById('img-preview');
-  document.getElementById('img-preview-thumb').src = URL.createObjectURL(blob);
-  document.getElementById('img-preview-name').textContent = name;
-  prev.style.display = 'flex';
+function setImage(blob, name) {
+  _pendImg = {blob, name};
+  document.getElementById('img-thumb').src = URL.createObjectURL(blob);
+  document.getElementById('img-name').textContent = name;
+  document.getElementById('img-preview').style.display = 'flex';
 }
+function clearImage() { _pendImg=null; document.getElementById('img-preview').style.display='none'; }
 
-function clearPendingImage() {
-  _pendingImage = null;
-  document.getElementById('img-preview').style.display = 'none';
-}
-
-// ── UI updates ──
-function showImage(src) {
-  const img = document.getElementById('ss-img');
-  const ph = document.getElementById('ss-placeholder');
-  img.src = src;
-  img.style.display = 'block';
-  ph.style.display = 'none';
-}
-
+// ── Header ──
 function updateHeader(data) {
-  document.getElementById('hdr-title').textContent = (data.label ? '📌'+data.label+' ' : '') + (data.title || 'BedCode').substring(0, 40);
-  const stEl = document.getElementById('hdr-state');
-  const stMap = {thinking:'思考中', idle:'空闲', unknown:'--'};
-  stEl.textContent = stMap[data.state] || data.state;
-  stEl.className = 'state' + (data.state === 'thinking' ? ' thinking' : '');
+  document.getElementById('hdr-title').textContent = (data.label?'📌'+data.label+' ':'') + (data.title||'BedCode').substring(0,40);
+  const st = document.getElementById('hdr-state');
+  const map = {thinking:'思考中',idle:'空闲',unknown:'--'};
+  st.textContent = map[data.state]||data.state;
+  st.className = 'badge'+(data.state==='thinking'?' active':'');
 }
 
 // ── WebSocket ──
 function connectWS() {
-  if (ws && ws.readyState <= 1) return;
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(proto + '//' + location.host + '/ws');
-  ws.onopen = () => {
-    ws.send(JSON.stringify({token: TOKEN}));
-    document.getElementById('conn-dot').classList.add('on');
-    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  };
-  ws.onmessage = (e) => {
-    try { handleWSEvent(JSON.parse(e.data)); } catch(err) {}
-  };
-  ws.onclose = () => {
-    document.getElementById('conn-dot').classList.remove('on');
-    reconnectTimer = setTimeout(connectWS, 3000);
-  };
+  if (ws && ws.readyState<=1) return;
+  const proto = location.protocol==='https:'?'wss:':'ws:';
+  ws = new WebSocket(proto+'//'+location.host+'/ws');
+  ws.onopen = () => { ws.send(JSON.stringify({token:TOKEN})); document.getElementById('conn-dot').classList.add('on'); if(reconnTimer){clearTimeout(reconnTimer);reconnTimer=null;} };
+  ws.onmessage = e => { try{handleWS(JSON.parse(e.data));}catch(err){} };
+  ws.onclose = () => { document.getElementById('conn-dot').classList.remove('on'); reconnTimer=setTimeout(connectWS,3000); };
   ws.onerror = () => ws.close();
 }
 
-function handleWSEvent(msg) {
+function handleWS(msg) {
   switch(msg.type) {
     case 'screenshot':
-      if (msg.image_base64) showImage('data:image/png;base64,' + msg.image_base64);
+      if (msg.image_base64) showSS('data:image/png;base64,'+msg.image_base64);
       break;
     case 'status':
-      if (msg.text) document.getElementById('hdr-title').textContent = msg.text.substring(0, 50);
-      if (msg.state === 'thinking') startAutoRefresh();
+      if (msg.text) document.getElementById('hdr-title').textContent=msg.text.substring(0,50);
+      if (msg.state==='thinking') startPoll();
       break;
-    case 'text':
-    case 'result':
+    case 'text': case 'result':
       if (msg.text) {
-        const panel = document.getElementById('text-panel');
-        panel.textContent = msg.text;
-        panel.classList.add('open');
-        logMsg(msg.text.substring(0,2000), 'recv');
+        addMsg(msg.text.substring(0,2000), 'recv');
+        document.getElementById('text-panel').textContent = msg.text;
+        document.getElementById('text-panel').classList.add('open');
       }
       break;
     case 'completion':
-      toast('✅ ' + (msg.label || '') + ' 完成');
-      doScreenshot();
-      doGrab();
-      break;
-    case 'pong':
+      addMsg('✅ '+(msg.label||'')+' 完成', 'sys');
+      doScreenshot(); doGrab();
       break;
   }
 }
 
-// ── Message log (localStorage) ──
-let _msgHistory = JSON.parse(localStorage.getItem('bedcode_msgs') || '[]');
+// ── Polling ──
+let _pollTimer=null, _lastHash='', _pollMs=10000;
 
-function _renderMsgLog() {
-  const log = document.getElementById('msg-log');
-  log.innerHTML = '';
-  _msgHistory.slice(-50).forEach(m => {
-    const div = document.createElement('div');
-    div.className = 'msg ' + m.d;
-    const arrow = m.d === 'sent' ? '→' : '←';
-    const short = m.x.length > 80 ? m.x.substring(0,80) + '…' : m.x;
-    div.innerHTML = `<span class="time">${m.t}</span><span class="dir">${arrow}</span><span class="mx">${esc(short)}</span>`;
-    if (m.d === 'recv') {
-      div.onclick = () => {
-        const panel = document.getElementById('text-panel');
-        panel.textContent = m.x;
-        panel.classList.add('open');
-      };
-    }
-    log.appendChild(div);
-  });
-  log.scrollTop = log.scrollHeight;
-}
-
-function logMsg(text, dir='sent') {
-  const t = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
-  _msgHistory.push({t, d: dir, x: text.substring(0,2000)});
-  if (_msgHistory.length > 100) _msgHistory = _msgHistory.slice(-50);
-  localStorage.setItem('bedcode_msgs', JSON.stringify(_msgHistory));
-  _renderMsgLog();
-}
-
-// ── Auto refresh (always-on, adaptive) ──
-let _refreshTimer = null;
-let _lastHash = '';
-let _pollInterval = 10000;
-
-async function autoRefreshTick() {
+async function pollTick() {
   const r = await api('/status');
   if (!r) return;
   updateHeader(r);
-  const newInterval = r.state === 'thinking' ? 3000 : 10000;
-  if (newInterval !== _pollInterval) {
-    _pollInterval = newInterval;
-    clearInterval(_refreshTimer);
-    _refreshTimer = setInterval(autoRefreshTick, _pollInterval);
-  }
-  const resp = await fetch(API + '/api/screenshot', {headers: authHeaders()});
+  const nms = r.state==='thinking'?3000:10000;
+  if (nms!==_pollMs) { _pollMs=nms; clearInterval(_pollTimer); _pollTimer=setInterval(pollTick,_pollMs); }
+  const resp = await fetch(API+'/api/screenshot',{headers:authH()});
   if (resp.ok) {
     const blob = await resp.blob();
-    const hash = blob.size.toString();
-    if (hash !== _lastHash) {
-      _lastHash = hash;
-      showImage(URL.createObjectURL(blob));
-    }
+    const h = blob.size.toString();
+    if (h!==_lastHash) { _lastHash=h; showSS(URL.createObjectURL(blob)); }
   }
 }
-
-function startAutoRefresh() {
-  if (_refreshTimer) return;
-  _refreshTimer = setInterval(autoRefreshTick, _pollInterval);
-  autoRefreshTick();
-}
-
-function stopAutoRefresh() {
-  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
-}
+function startPoll() { if(_pollTimer)return; _pollTimer=setInterval(pollTick,_pollMs); pollTick(); }
 
 // ── Init ──
-document.getElementById('toggle-text').onclick = () => {
-  document.getElementById('text-panel').classList.toggle('open');
-};
-
-document.getElementById('msg-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doSend();
-});
+document.getElementById('ss-btn').onclick = doScreenshot;
+document.getElementById('txt-btn').onclick = () => document.getElementById('text-panel').classList.toggle('open');
+document.getElementById('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') doSend(); });
 
 document.addEventListener('paste', e => {
   const items = e.clipboardData?.items;
   if (!items) return;
-  for (let i = 0; i < items.length; i++) {
+  for (let i=0; i<items.length; i++) {
     if (items[i].type.startsWith('image/')) {
       e.preventDefault();
       const blob = items[i].getAsFile();
       if (!blob) return;
-      setPendingImage(blob, 'paste.png');
-      toast('📎 图片已就绪，点发送');
+      setImage(blob, 'paste.png');
+      toast('📎 图片已就绪');
       return;
     }
   }
 });
 
+renderChat();
 connectWS();
-_renderMsgLog();
-doRefresh().then(() => {
-  doScreenshot();
-  startAutoRefresh();
-});
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
+doRefresh().then(() => { doScreenshot(); startPoll(); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script>
 </body>
 </html>
