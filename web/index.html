@@ -125,7 +125,7 @@ async function doSend() {
   input.value = '';
   const r = await api('/send', {method:'POST', body: JSON.stringify({text})});
   if (!r) return;
-  if (r.status === 'sent') toast('✅ 已发送');
+  if (r.status === 'sent') { toast('✅ 已发送'); startAutoRefresh(); }
   else if (r.status === 'queued') toast('📋 已排队 #' + r.position);
   else toast(r.message || '发送失败');
 }
@@ -240,11 +240,54 @@ function handleWSEvent(msg) {
       break;
     case 'completion':
       toast('✅ ' + (msg.label || '') + ' 完成');
+      stopAutoRefresh();
       doScreenshot();
+      doGrab();
       break;
     case 'pong':
       break;
   }
+}
+
+// ── Auto refresh ──
+let _refreshTimer = null;
+let _lastHash = '';
+
+async function autoRefreshTick() {
+  const r = await api('/status');
+  if (!r) return;
+  updateHeader(r);
+  // 截图刷新
+  const resp = await fetch(API + '/api/screenshot', {headers: headers()});
+  if (resp.ok) {
+    const blob = await resp.blob();
+    const hash = blob.size.toString();
+    if (hash !== _lastHash) {
+      _lastHash = hash;
+      showImage(URL.createObjectURL(blob));
+    }
+  }
+  // thinking 状态持续刷新，idle 时停止
+  if (r.state !== 'thinking') {
+    stopAutoRefresh();
+    // 最后抓一次终端文本
+    const g = await api('/grab');
+    if (g?.text) {
+      const panel = document.getElementById('text-panel');
+      panel.textContent = g.text;
+      panel.classList.add('open');
+    }
+  }
+}
+
+function startAutoRefresh() {
+  if (_refreshTimer) return;
+  _refreshTimer = setInterval(autoRefreshTick, 5000);
+  autoRefreshTick();
+}
+
+function stopAutoRefresh() {
+  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
 }
 
 // ── Init ──
@@ -257,7 +300,12 @@ document.getElementById('msg-input').addEventListener('keydown', e => {
 });
 
 connectWS();
-doRefresh();
+doRefresh().then(() => {
+  // 初始加载截图
+  doScreenshot();
+  // 如果当前是 thinking，自动开始轮询
+  api('/status').then(r => { if (r?.state === 'thinking') startAutoRefresh(); });
+});
 
 // PWA service worker
 if ('serviceWorker' in navigator) {
