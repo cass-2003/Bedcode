@@ -61,10 +61,17 @@ async def post_init(application: Application) -> None:
 def _cleanup():
     _save_state()
     _kill_stream_proc()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
     for key in ("monitor_task", "passive_monitor_task"):
         task = state.get(key)
         if task and not task.done():
-            task.cancel()
+            if loop and loop.is_running():
+                loop.call_soon_threadsafe(task.cancel)
+            else:
+                task.cancel()
     logger.info("BedCode 清理完成")
 
 

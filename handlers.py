@@ -862,7 +862,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "👀 监控": cmd_watch,
         "⏹ 停止": cmd_stop,
         "🔄 状态": cmd_start,
-        "🔀 切换模式": cmd_switch_mode,
     }
     if text in BUTTON_MAP:
         await BUTTON_MAP[text](update, context)
@@ -964,7 +963,7 @@ async def _inject_to_claude(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 
 async def _run_shell(update: Update, context: ContextTypes.DEFAULT_TYPE, cmd: str) -> None:
-    DANGEROUS_PATTERNS = {"rm -rf /", "mkfs", "dd if=", ":(){ :|:&", "fork bomb", "> /dev/sd"}
+    DANGEROUS_PATTERNS = {"rm -rf /", "rm -rf /*", "mkfs", "dd if=", ":(){ :|:&", "fork bomb", "> /dev/sd", "chmod -R 777 /", "chown -R", "> /dev/null 2>&1 &"}
     cmd_lower = cmd.lower().strip()
     if any(p in cmd_lower for p in DANGEROUS_PATTERNS):
         await update.message.reply_text("⚠️ 危险命令已拦截")
