@@ -1,9 +1,10 @@
 """REST 端点: 直接调用现有模块。"""
 import asyncio
 import base64
+import os
 import time
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Response, UploadFile, File, Form
 from pydantic import BaseModel
 
 from config import state, SHELL_TIMEOUT
@@ -11,6 +12,7 @@ from win32_api import (
     capture_window_screenshot, send_keys_to_window, send_raw_keys,
     send_ctrl_c, send_ctrl_z, get_window_title,
     get_clipboard_text, set_clipboard_text,
+    copy_image_to_clipboard, paste_image_to_window,
 )
 from claude_detect import (
     detect_claude_state, find_claude_windows, read_terminal_text,
@@ -303,3 +305,27 @@ async def batch(body: BatchBody):
     for m in added:
         state["msg_queue"].append(m)
     return {"status": "ok", "added": len(added), "total": len(state["msg_queue"])}
+
+
+@router.post("/image")
+async def upload_image(file: UploadFile = File(...), caption: str = Form("")):
+    handle = await _get_handle()
+    if not handle:
+        return {"status": "error", "message": "No active window"}
+    img_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "images")
+    os.makedirs(img_dir, exist_ok=True)
+    filepath = os.path.join(img_dir, f"web_{int(time.time())}_{file.filename or 'img.png'}")
+    data = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(data)
+    if not state.get("stream_mode"):
+        copied = await asyncio.to_thread(copy_image_to_clipboard, filepath)
+        if copied:
+            pasted = await asyncio.to_thread(paste_image_to_window, handle)
+            if pasted:
+                text = caption or "请分析这个图片"
+                await asyncio.to_thread(send_keys_to_window, handle, text)
+                return {"status": "sent", "method": "paste"}
+    inject_text = f"{caption} {filepath}" if caption else f"请分析这个图片 {filepath}"
+    await asyncio.to_thread(send_keys_to_window, handle, inject_text)
+    return {"status": "sent", "method": "path"}
