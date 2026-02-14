@@ -296,3 +296,79 @@ def _start_monitor(handle: int, chat_id: int, context: ContextTypes.DEFAULT_TYPE
     state["monitor_task"] = asyncio.create_task(
         _monitor_loop(handle, chat_id, context)
     )
+
+
+async def _passive_monitor_loop(app) -> None:
+    """常驻后台监控：检测本地操作导致的 thinking→idle 转换，自动转发结果到 Telegram。"""
+    was_thinking = False
+    idle_count = 0
+
+    while True:
+        try:
+            await asyncio.sleep(2)
+
+            chat_id = state.get("chat_id")
+            handle = state.get("target_handle")
+            if not chat_id or not handle:
+                continue
+
+            # 如果 Telegram 触发的监控正在运行，让它处理，被动监控跳过
+            active_task = state.get("monitor_task")
+            if active_task and not active_task.done():
+                was_thinking = False
+                idle_count = 0
+                continue
+
+            title = await asyncio.to_thread(get_window_title, handle)
+            if not title:
+                continue
+
+            st = detect_claude_state(title)
+
+            if st == "thinking":
+                was_thinking = True
+                idle_count = 0
+            elif st == "idle" and was_thinking:
+                idle_count += 1
+                if idle_count >= 2:
+                    # 再次确认
+                    title2 = await asyncio.to_thread(get_window_title, handle)
+                    if detect_claude_state(title2) == "thinking":
+                        idle_count = 0
+                        continue
+
+                    logger.info("[被动监控] 检测到本地操作完成，转发结果")
+
+                    state["last_screenshot_hash"] = None
+                    img_data = await asyncio.to_thread(capture_window_screenshot, handle)
+                    if img_data:
+                        try:
+                            await app.bot.send_photo(chat_id=chat_id, photo=img_data)
+                        except Exception:
+                            pass
+
+                    term_text = await asyncio.to_thread(read_last_transcript_response)
+                    if not term_text or len(term_text.strip()) <= 10:
+                        term_text = await asyncio.to_thread(read_terminal_text, handle)
+                    if term_text and len(term_text.strip()) > 10:
+                        await send_result(chat_id, term_text, app)
+
+                    was_thinking = False
+                    idle_count = 0
+            else:
+                idle_count = 0
+
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"被动监控异常: {e}")
+            await asyncio.sleep(5)
+
+
+def _start_passive_monitor(app):
+    task = state.get("passive_monitor_task")
+    if task and not task.done():
+        return
+    state["passive_monitor_task"] = asyncio.create_task(
+        _passive_monitor_loop(app)
+    )

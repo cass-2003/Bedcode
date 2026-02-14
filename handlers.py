@@ -52,6 +52,8 @@ SUPPORTED_DOC_EXTS = {
 async def auth_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.effective_user or update.effective_user.id not in ALLOWED_USERS:
         raise ApplicationHandlerStop()
+    if update.effective_chat and not state.get("chat_id"):
+        state["chat_id"] = update.effective_chat.id
 
 
 # ── 命令处理 ──────────────────────────────────────────────────────

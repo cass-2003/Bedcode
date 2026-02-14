@@ -97,4 +97,6 @@ state = {
     "window_labels": {},
     "last_screenshot_hash": None,
     "cmd_history": deque(maxlen=20),
+    "chat_id": None,
+    "passive_monitor_task": None,
 }

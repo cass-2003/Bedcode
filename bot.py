@@ -24,6 +24,7 @@ from handlers import (
     callback_handler, handle_message, handle_photo,
     handle_voice, handle_document,
 )
+from monitor import _start_passive_monitor
 
 # 加载持久化标签
 state["window_labels"] = _load_labels()
@@ -36,13 +37,16 @@ async def error_handler(update: object, context) -> None:
 async def post_init(application: Application) -> None:
     await application.bot.set_my_commands(BOT_COMMANDS)
     logger.info("命令菜单已注册")
+    # 启动常驻被动监控（等第一条消息获取 chat_id 后自动生效）
+    _start_passive_monitor(application)
 
 
 def _cleanup():
     _kill_stream_proc()
-    task = state.get("monitor_task")
-    if task and not task.done():
-        task.cancel()
+    for key in ("monitor_task", "passive_monitor_task"):
+        task = state.get(key)
+        if task and not task.done():
+            task.cancel()
     logger.info("BedCode 清理完成")
 
 
