@@ -102,7 +102,6 @@ REPLY_KEYBOARD = ReplyKeyboardMarkup(
     [
         [KeyboardButton("📷 截屏"), KeyboardButton("🪟 窗口"), KeyboardButton("🆕 新实例")],
         [KeyboardButton("👀 监控"), KeyboardButton("⏹ 停止"), KeyboardButton("🔄 状态")],
-        [KeyboardButton("🔀 切换模式")],
     ],
     resize_keyboard=True,
     is_persistent=True,

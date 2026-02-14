@@ -147,7 +147,7 @@ async def _stream_reader(proc, chat_id: int, context: ContextTypes.DEFAULT_TYPE)
                     handle = state.get("target_handle", 0)
                     state["session_costs"][handle] = state["session_costs"].get(handle, 0.0) + cost
                 if buf:
-                    chunks = split_text(buf, 4000)
+                    chunks = split_text(buf, 3500)
                     for chunk in chunks:
                         safe = html.escape(chunk)
                         try:

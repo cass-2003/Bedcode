@@ -16,13 +16,14 @@ async def _handle(reader, writer):
         "session_costs": state.get("session_costs", {}),
         "uptime_seconds": round(time.time() - _START, 1),
     })
+    body_bytes = body.encode("utf-8")
     resp = (
         f"HTTP/1.1 200 OK\r\n"
         f"Content-Type: application/json\r\n"
-        f"Content-Length: {len(body)}\r\n"
-        f"\r\n{body}"
+        f"Content-Length: {len(body_bytes)}\r\n"
+        f"\r\n"
     )
-    writer.write(resp.encode())
+    writer.write(resp.encode("utf-8") + body_bytes)
     await writer.drain()
     writer.close()
     try:

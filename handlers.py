@@ -431,7 +431,7 @@ async def cmd_tpl(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not tpls:
             await update.message.reply_text("暂无模板\n用法: /tpl add 名称 内容")
             return
-        buttons = [[InlineKeyboardButton(name, callback_data=f"tpl:{name}")] for name in tpls]
+        buttons = [[InlineKeyboardButton(name, callback_data=f"tpl:{name[:59]}")] for name in tpls]
         await update.message.reply_text("📋 选择模板发送：", reply_markup=InlineKeyboardMarkup(buttons))
         return
     if args.startswith("add "):

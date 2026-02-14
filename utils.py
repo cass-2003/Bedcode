@@ -229,12 +229,12 @@ def _build_dir_buttons() -> list[list]:
     ]
     seen = {os.path.normpath(state["cwd"])}
     if os.path.normpath(home) not in seen:
-        buttons.append([InlineKeyboardButton(f"📂 {home[:30]}", callback_data=f"newdir:{home}")])
+        buttons.append([InlineKeyboardButton(f"📂 {home[:30]}", callback_data=f"newdir:{home[:57]}")])
         seen.add(os.path.normpath(home))
     for d in _load_recent_dirs():
         if os.path.normpath(d) not in seen and os.path.isdir(d):
             short = os.path.basename(d) or d[:30]
-            buttons.append([InlineKeyboardButton(f"📂 {short}", callback_data=f"newdir:{d}")])
+            buttons.append([InlineKeyboardButton(f"📂 {short}", callback_data=f"newdir:{d[:57]}")])
             seen.add(os.path.normpath(d))
             if len(buttons) >= 6:
                 break

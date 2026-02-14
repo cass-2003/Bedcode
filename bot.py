@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """BedCode v5 — Telegram Bot 远程操控 Claude Code"""
+import asyncio
 import signal
 
 from telegram import Update
