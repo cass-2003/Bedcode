@@ -212,14 +212,19 @@ async def _monitor_loop(
                 prompt = _detect_interactive_prompt(text) if text else None
                 if prompt:
                     logger.info(f"[监控] thinking 状态下检测到交互提示")
-                    # autoyes: 自动回复 y/n 提示
+                    # autoyes: 自动回复确认提示
                     if state.get("auto_yes") and _parse_prompt_type(prompt):
                         parsed = _parse_prompt_type(prompt)
+                        auto_keys = None
                         if parsed and parsed[0][0] == "✅ Yes":
-                            keys = parsed[0][1].split()
-                            await asyncio.to_thread(send_raw_keys, handle, keys)
-                            logger.info("[监控] autoyes: 自动回复 y")
-                            await context.bot.send_message(chat_id=chat_id, text="🤖 autoyes: 自动确认 y")
+                            auto_keys = parsed[0][1].split()
+                        elif "do you want to proceed" in prompt.lower() or ("❯" in prompt and "yes" in prompt.lower()):
+                            auto_keys = ["1", "enter"]
+                        if auto_keys:
+                            await asyncio.to_thread(send_raw_keys, handle, auto_keys)
+                            label = " ".join(auto_keys)
+                            logger.info(f"[监控] autoyes: 自动确认 {label}")
+                            await context.bot.send_message(chat_id=chat_id, text=f"🤖 autoyes: 自动确认 {label}")
                             was_thinking = False
                             idle_count = 0
                             grace_period = 5
