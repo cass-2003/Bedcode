@@ -1,6 +1,7 @@
 """工具函数: 文本分割、结果发送、文件保存、路径持久化。"""
 import os
 import json
+import re
 import time
 import html
 import asyncio
@@ -41,9 +42,56 @@ def split_text(text: str, max_len: int = 4000) -> list[str]:
     return chunks
 
 
+def _md_table_to_text(text: str) -> str:
+    """Convert markdown tables to plain text for Telegram display."""
+    lines = text.split("\n")
+    result = []
+    table_lines = []
+
+    def _flush_table():
+        if not table_lines:
+            return
+        # Parse rows
+        rows = []
+        for tl in table_lines:
+            cells = [c.strip() for c in tl.strip().strip("|").split("|")]
+            rows.append(cells)
+        # Remove separator row (---|----|---)
+        rows = [r for r in rows if not all(re.match(r'^[-:]+$', c) for c in r)]
+        if not rows:
+            return
+        # Calculate column widths
+        ncols = max(len(r) for r in rows)
+        widths = [0] * ncols
+        for r in rows:
+            for i, c in enumerate(r):
+                if i < ncols:
+                    widths[i] = max(widths[i], len(c))
+        # Format
+        for i, r in enumerate(rows):
+            parts = []
+            for j in range(ncols):
+                cell = r[j] if j < len(r) else ""
+                parts.append(cell.ljust(widths[j]))
+            result.append("  ".join(parts).rstrip())
+            if i == 0:
+                result.append("  ".join("-" * w for w in widths))
+
+    for line in lines:
+        if "|" in line and line.strip().startswith("|"):
+            table_lines.append(line)
+        else:
+            _flush_table()
+            table_lines = []
+            result.append(line)
+    _flush_table()
+    return "\n".join(result)
+
+
 async def send_result(chat_id: int, text: str, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not text.strip():
         text = "(空输出)"
+    text = _md_table_to_text(text)
     chunks = split_text(text)
     for i, chunk in enumerate(chunks):
         md_prefix = f"**[{i+1}/{len(chunks)}]**\n" if len(chunks) > 1 else ""

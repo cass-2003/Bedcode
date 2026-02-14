@@ -17,6 +17,7 @@ from claude_detect import detect_claude_state, read_terminal_text, read_last_tra
 from utils import send_result
 
 logger = logging.getLogger("bedcode")
+_queue_lock = asyncio.Lock()
 
 
 def _fmt_elapsed(start: float) -> str:
@@ -228,8 +229,10 @@ async def _monitor_loop(
 
                     await _forward_result(chat_id, handle, context)
 
-                    if state["msg_queue"]:
-                        next_msg = state["msg_queue"].popleft()
+                    async with _queue_lock:
+                        has_queued = bool(state["msg_queue"])
+                        next_msg = state["msg_queue"].popleft() if has_queued else None
+                    if next_msg is not None:
                         try:
                             state["status_msg"] = await context.bot.send_message(
                                 chat_id=chat_id,

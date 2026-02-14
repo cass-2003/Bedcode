@@ -58,6 +58,7 @@ BOT_COMMANDS = [
     BotCommand("key", "发送按键 如 1 2 ↑ ↓ tab esc enter"),
     BotCommand("watch", "手动开启监控循环"),
     BotCommand("stop", "停止监控循环"),
+    BotCommand("break", "发送 Ctrl+C 中断 Claude"),
     BotCommand("delay", "设置截图间隔秒数"),
     BotCommand("auto", "开关自动监控"),
     BotCommand("windows", "扫描窗口并选择目标"),

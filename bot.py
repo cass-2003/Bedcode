@@ -19,7 +19,7 @@ from stream_mode import _kill_stream_proc
 from handlers import (
     auth_gate,
     cmd_start, cmd_screenshot, cmd_grab, cmd_key,
-    cmd_watch, cmd_stop, cmd_delay, cmd_auto,
+    cmd_watch, cmd_stop, cmd_break, cmd_delay, cmd_auto,
     cmd_windows, cmd_new, cmd_cd, cmd_history, cmd_reload,
     callback_handler, handle_message, handle_photo,
     handle_voice, handle_document,
@@ -88,6 +88,7 @@ def main() -> None:
     app.add_handler(CommandHandler("key", cmd_key))
     app.add_handler(CommandHandler("watch", cmd_watch))
     app.add_handler(CommandHandler("stop", cmd_stop))
+    app.add_handler(CommandHandler("break", cmd_break))
     app.add_handler(CommandHandler("delay", cmd_delay))
     app.add_handler(CommandHandler("auto", cmd_auto))
     app.add_handler(CommandHandler("windows", cmd_windows))

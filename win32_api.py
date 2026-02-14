@@ -288,6 +288,27 @@ def send_raw_keys(handle: int, key_parts: list[str]) -> bool:
         return False
 
 
+VK_CONTROL = 0x11
+
+def send_ctrl_c(handle: int) -> bool:
+    """Send Ctrl+C to interrupt Claude."""
+    try:
+        if not _activate_window(handle):
+            logger.warning(f"无法激活窗口 {handle}，但仍尝试发送 Ctrl+C")
+        inputs = (INPUT * 4)(
+            _make_key_input(vk=VK_CONTROL),
+            _make_key_input(vk=0x43),  # 'C'
+            _make_key_input(vk=0x43, flags=KEYEVENTF_KEYUP),
+            _make_key_input(vk=VK_CONTROL, flags=KEYEVENTF_KEYUP),
+        )
+        user32.SendInput(4, ctypes.byref(inputs), ctypes.sizeof(INPUT))
+        logger.info("已发送 Ctrl+C")
+        return True
+    except Exception as e:
+        logger.exception(f"Ctrl+C 发送失败: {e}")
+        return False
+
+
 def copy_image_to_clipboard(filepath: str) -> bool:
     """将图片文件复制到 Windows 剪贴板（BMP 格式）。"""
     try:

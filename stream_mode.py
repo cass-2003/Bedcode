@@ -167,6 +167,13 @@ async def _stream_reader(proc, chat_id: int, context: ContextTypes.DEFAULT_TYPE)
         logger.error(f"[流式] reader 异常: {e}", exc_info=True)
         await context.bot.send_message(chat_id=chat_id, text=f"❌ 流式读取异常: {e}")
 
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
     ret = proc.poll()
     logger.info(f"[流式] 子进程退出码: {ret}")
 

@@ -25,6 +25,7 @@ from win32_api import (
     send_keys_to_window, send_raw_keys,
     _send_unicode_char, _send_vk, VK_RETURN,
     copy_image_to_clipboard, paste_image_to_window,
+    send_ctrl_c,
 )
 from claude_detect import (
     detect_claude_state, find_claude_windows,
@@ -192,6 +193,16 @@ async def cmd_watch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _cancel_monitor()
     await update.message.reply_text("监控已停止")
+
+
+async def cmd_break(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    handle = await _get_handle()
+    if not handle:
+        await update.message.reply_text("未找到窗口，先 /windows")
+        return
+    success = await asyncio.to_thread(send_ctrl_c, handle)
+    _cancel_monitor()
+    await update.message.reply_text("⚡ Ctrl+C 已发送" if success else "❌ 发送失败")
 
 
 async def cmd_windows(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -643,9 +654,13 @@ async def _inject_to_claude(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     success = await asyncio.to_thread(send_keys_to_window, handle, inject_text)
 
     if not success:
-        state["target_handle"] = None
-        await _update_status(update.effective_chat.id, "❌ 发送失败，窗口可能已关闭\n发 /windows 重新扫描", context)
-        return
+        handle = await _get_handle()
+        if handle:
+            success = await asyncio.to_thread(send_keys_to_window, handle, inject_text)
+        if not success:
+            state["target_handle"] = None
+            await _update_status(update.effective_chat.id, "❌ 发送失败，窗口可能已关闭\n发 /windows 重新扫描", context)
+            return
 
     await _update_status(update.effective_chat.id, "✅ 已发送", context)
 
@@ -726,6 +741,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     ext = os.path.splitext(doc.file_name or "")[1].lower()
     if ext not in SUPPORTED_DOC_EXTS:
         await update.message.reply_text(f"⚠️ 不支持的文件类型: {ext}")
+        return
+    if doc.file_size and doc.file_size > 10 * 1024 * 1024:
+        await update.message.reply_text("⚠️ 文件过大 (>10MB)")
         return
     file = await context.bot.get_file(doc.file_id)
     safe_name = os.path.basename(doc.file_name or "upload").replace("..", "").strip()
