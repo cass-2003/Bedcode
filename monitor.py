@@ -133,6 +133,7 @@ async def _forward_result(chat_id: int, handle: int, ctx) -> None:
                 term_text = f"📂 {proj_label}\n\n{term_text}"
         await send_result(chat_id, prefix + term_text if prefix else term_text, ctx)
 
+        await bus.emit(Event("result", {"text": term_text[:2000]}))
         if level == "error":
             await bot.send_message(chat_id=chat_id, text="🚨 检测到错误输出，请检查！")
 
