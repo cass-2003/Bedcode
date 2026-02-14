@@ -767,9 +767,10 @@ async def _launch_new_claude(chat_id: int, context: ContextTypes.DEFAULT_TYPE, w
         wt_path = os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WindowsApps\wt.exe")
         git_bash = os.environ.get("GIT_BASH_PATH", GIT_BASH_PATH)
         bat_path = os.path.join(tempfile.gettempdir(), "bedcode_launch.bat")
+        safe_dir = work_dir.replace('"', '')
         with open(bat_path, "w", encoding="utf-8") as f:
             f.write(f"@set CLAUDE_CODE_GIT_BASH_PATH={git_bash}\n")
-            f.write(f"@cd /d \"{work_dir}\"\n")
+            f.write(f"@cd /d \"{safe_dir}\"\n")
             f.write("@claude\n")
         if new_window:
             cmd = [wt_path, "-w", "new", bat_path]

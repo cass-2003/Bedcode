@@ -42,13 +42,13 @@ def _detect_interactive_prompt(text: str) -> str | None:
         return None
     lines = text.strip().split("\n")
     tail = "\n".join(lines[-30:])
-    prompts = [
-        "Select an option", "Choose", "approve", "deny", "Yes",
-        "allowedPrompts", "Do you want", "(y/n)", "(Y/n)",
-        "❯", "◯", "◉", "☐", "☑",
-    ]
-    for p in prompts:
-        if p in tail:
+    last_few = "\n".join(lines[-5:])
+    # Exact prompt markers (only match in last 5 lines)
+    for p in ("(y/n)", "(Y/n)", "❯", "◯", "◉", "☐", "☑"):
+        if p in last_few:
+            return tail
+    for p in ("Select an option", "allowedPrompts", "Do you want"):
+        if p in last_few:
             return tail
     return None
 
@@ -211,7 +211,12 @@ async def _monitor_loop(
                     if state.get("auto_yes") and _parse_prompt_type(prompt):
                         parsed = _parse_prompt_type(prompt)
                         auto_keys = None
-                        if parsed and parsed[0][0] == "✅ Yes":
+                        _deny_kw = ("delete", "remove", "overwrite", "force push",
+                                    "drop", "destroy", "reset --hard", "rm -rf")
+                        prompt_lower = prompt.lower()
+                        if any(kw in prompt_lower for kw in _deny_kw):
+                            logger.info("[监控] autoyes: 拒绝自动确认危险操作")
+                        elif parsed and parsed[0][0] == "✅ Yes":
                             auto_keys = parsed[0][1].split()
                         elif "do you want to proceed" in prompt.lower() or ("❯" in prompt and "yes" in prompt.lower()):
                             auto_keys = ["1", "enter"]

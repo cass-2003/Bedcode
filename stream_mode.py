@@ -169,16 +169,35 @@ async def _stream_reader(proc, chat_id: int, context: ContextTypes.DEFAULT_TYPE)
     except Exception as e:
         logger.error(f"[流式] reader 异常: {e}", exc_info=True)
         await context.bot.send_message(chat_id=chat_id, text=f"❌ 流式读取异常: {e}")
-
-    if proc.poll() is None:
-        proc.terminate()
-        try:
-            proc.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
-    ret = proc.poll()
-    logger.info(f"[流式] 子进程退出码: {ret}")
+    finally:
+        # flush remaining buf
+        if buf:
+            chunks = split_text(buf, 3500)
+            for chunk in chunks:
+                safe = html.escape(chunk)
+                try:
+                    await context.bot.send_message(chat_id=chat_id, text=f"<pre>{safe}</pre>", parse_mode="HTML")
+                except Exception:
+                    try:
+                        await context.bot.send_message(chat_id=chat_id, text=chunk)
+                    except Exception:
+                        pass
+        # cleanup process
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                await asyncio.to_thread(proc.wait, timeout=3)
+            except Exception:
+                proc.kill()
+                await asyncio.to_thread(proc.wait)
+        for pipe in (proc.stdout, proc.stderr):
+            if pipe:
+                try:
+                    pipe.close()
+                except Exception:
+                    pass
+        ret = proc.poll()
+        logger.info(f"[流式] 子进程退出码: {ret}")
 
 
 async def _stream_send(text: str, chat_id: int, context: ContextTypes.DEFAULT_TYPE):
