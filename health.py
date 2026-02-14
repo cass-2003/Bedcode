@@ -33,6 +33,6 @@ async def _handle(reader, writer):
 
 async def start_health_server():
     port = int(os.environ.get("HEALTH_PORT", "8099"))
-    srv = await asyncio.start_server(_handle, "0.0.0.0", port)
+    srv = await asyncio.start_server(_handle, "127.0.0.1", port)
     state["_health_server"] = srv
     logger.info(f"Health endpoint on :{port}")

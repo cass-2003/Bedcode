@@ -49,6 +49,7 @@ RECENT_DIRS_FILE = os.path.join(_BASE_DIR, "recent_dirs.json")
 TEMPLATES_FILE = os.path.join(_BASE_DIR, "templates.json")
 PANEL_FILE = os.path.join(_BASE_DIR, "panel.json")
 ALIASES_FILE = os.path.join(_BASE_DIR, "aliases.json")
+STATE_FILE = os.path.join(_BASE_DIR, "state.json")
 
 # ── 日志 ─────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -65,6 +66,7 @@ logger = logging.getLogger("bedcode")
 BOT_COMMANDS = [
     BotCommand("start", "显示状态和使用说明"),
     BotCommand("screenshot", "截取终端画面(不打断)"),
+    BotCommand("ocr", "截图并提取文字"),
     BotCommand("grab", "抓取终端文本(不打断)"),
     BotCommand("key", "发送按键 如 1 2 ↑ ↓ tab esc enter"),
     BotCommand("watch", "手动开启监控循环"),
@@ -92,6 +94,7 @@ BOT_COMMANDS = [
     BotCommand("clip", "剪贴板同步"),
     BotCommand("autoyes", "自动确认 y/n 提示"),
     BotCommand("batch", "批量排队消息"),
+    BotCommand("tts", "文字转语音"),
 ]
 
 # ── 常驻按钮面板 ─────────────────────────────────────────────────

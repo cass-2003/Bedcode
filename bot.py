@@ -14,7 +14,7 @@ from telegram.ext import (
 
 from config import BOT_TOKEN, ALLOWED_USERS, BOT_COMMANDS, state, logger
 from claude_detect import find_claude_windows
-from utils import _load_labels, _load_templates, _load_panel, _load_aliases
+from utils import _load_labels, _load_templates, _load_panel, _load_aliases, _load_state, _save_state
 from stream_mode import _kill_stream_proc
 from handlers import (
     auth_gate,
@@ -25,7 +25,7 @@ from handlers import (
     cmd_diff, cmd_log, cmd_search, cmd_schedule,
     cmd_tpl, cmd_proj,
     cmd_panel, cmd_clip, cmd_autoyes,
-    cmd_quiet, cmd_alias, cmd_batch,
+    cmd_quiet, cmd_alias, cmd_batch, cmd_tts, cmd_ocr,
     callback_handler, handle_message, handle_photo,
     handle_voice, handle_document,
 )
@@ -39,6 +39,7 @@ if _panel_rows:
     from handlers import _build_panel_markup
     state["custom_panel"] = _build_panel_markup(_panel_rows)
 state["aliases"] = _load_aliases()
+_load_state()
 
 
 async def error_handler(update: object, context) -> None:
@@ -58,6 +59,7 @@ async def post_init(application: Application) -> None:
 
 
 def _cleanup():
+    _save_state()
     _kill_stream_proc()
     for key in ("monitor_task", "passive_monitor_task"):
         task = state.get(key)
@@ -127,6 +129,8 @@ def main() -> None:
     app.add_handler(CommandHandler("quiet", cmd_quiet))
     app.add_handler(CommandHandler("alias", cmd_alias))
     app.add_handler(CommandHandler("batch", cmd_batch))
+    app.add_handler(CommandHandler("tts", cmd_tts))
+    app.add_handler(CommandHandler("ocr", cmd_ocr))
     app.add_handler(CallbackQueryHandler(callback_handler))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))

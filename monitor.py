@@ -121,6 +121,12 @@ async def _forward_result(chat_id: int, handle: int, ctx) -> None:
             level = "info"
 
         prefix = {"error": "🚨 ", "success": "✅ "}.get(level, "")
+        # Add project label for multi-window identification
+        win_title = await asyncio.to_thread(get_window_title, handle)
+        if win_title:
+            proj_label = win_title.lstrip(''.join('⠂⠃⠄⠆⠇⠋⠙⠸⠴⠤✳ ')).strip()
+            if proj_label:
+                term_text = f"📂 {proj_label}\n\n{term_text}"
         await send_result(chat_id, prefix + term_text if prefix else term_text, ctx)
 
         if level == "error":
@@ -354,107 +360,117 @@ def _start_monitor(handle: int, chat_id: int, context: ContextTypes.DEFAULT_TYPE
 
 
 async def _passive_monitor_loop(app) -> None:
-    """常驻后台监控：检测本地操作导致的 thinking→idle 转换，自动转发结果到 Telegram。"""
-    was_thinking = False
-    idle_count = 0
-    think_start = None
-    status_msg = None
+    """常驻后台监控：检测所有 Claude 窗口的 thinking→idle 转换，自动转发结果到 Telegram。"""
+    window_states = {}  # handle → {"was_thinking", "idle_count", "think_start", "status_msg"}
 
     while True:
         try:
             await asyncio.sleep(2)
 
             chat_id = state.get("chat_id")
-            handle = state.get("target_handle")
-            if not chat_id or not handle:
+            if not chat_id:
                 continue
 
             # 如果 Telegram 触发的监控正在运行，让它处理，被动监控跳过
             active_task = state.get("monitor_task")
             if active_task and not active_task.done():
+                for ws in window_states.values():
+                    if ws["status_msg"]:
+                        try: await ws["status_msg"].delete()
+                        except Exception: pass
+                window_states.clear()
                 was_thinking = False
-                idle_count = 0
-                # 清理状态消息
-                if status_msg:
-                    try: await status_msg.delete()
-                    except Exception: pass
-                    status_msg = None
-                    think_start = None
+                thinking_start = None
+                passive_status_msg = None
                 continue
 
-            title = await asyncio.to_thread(get_window_title, handle)
-            if not title:
-                # 窗口已关闭，尝试自动重扫
-                windows = await asyncio.to_thread(find_claude_windows)
+            windows = await asyncio.to_thread(find_claude_windows)
+            live_handles = {w["handle"] for w in windows}
+
+            # Clean up entries for windows that no longer exist
+            for h in list(window_states):
+                if h not in live_handles:
+                    ws = window_states.pop(h)
+                    if ws["status_msg"]:
+                        try: await ws["status_msg"].delete()
+                        except Exception: pass
+
+            # Auto-update target_handle if current one is gone
+            if state.get("target_handle") not in live_handles:
                 if windows:
                     state["target_handle"] = windows[0]["handle"]
                     logger.info(f"[被动监控] 窗口已关闭，自动切换到 {windows[0]['handle']}")
                 else:
                     state["target_handle"] = None
-                was_thinking = False
-                idle_count = 0
-                continue
+                    continue
 
-            st = detect_claude_state(title)
+            for w_info in windows:
+                handle = w_info["handle"]
+                label = w_info.get("label") or f"窗口{handle}"
+                st = w_info["state"]
 
-            if st == "thinking":
-                idle_count = 0
-                if not was_thinking:
-                    was_thinking = True
-                    think_start = time.time()
-                    try:
-                        status_msg = await app.bot.send_message(
-                            chat_id=chat_id, text="🧠 Claude 思考中... (0s)")
-                    except Exception:
-                        status_msg = None
-                elif status_msg and think_start:
-                    elapsed = int(time.time() - think_start)
-                    text = f"🧠 Claude 思考中... ({_fmt_elapsed(think_start)})"
-                    try:
-                        await status_msg.edit_text(text)
-                    except Exception:
-                        pass
-            elif st == "idle" and was_thinking:
-                idle_count += 1
-                if idle_count >= 2:
-                    # 再次确认
-                    title2 = await asyncio.to_thread(get_window_title, handle)
-                    if detect_claude_state(title2) == "thinking":
-                        idle_count = 0
-                        continue
+                if handle not in window_states:
+                    window_states[handle] = {
+                        "was_thinking": False, "idle_count": 0,
+                        "think_start": None, "status_msg": None,
+                    }
+                ws = window_states[handle]
 
-                    # 删除思考状态消息
-                    if status_msg:
-                        try: await status_msg.delete()
-                        except Exception: pass
-                        status_msg = None
-                        think_start = None
+                if st == "thinking":
+                    ws["idle_count"] = 0
+                    if not ws["was_thinking"]:
+                        ws["was_thinking"] = True
+                        ws["think_start"] = time.time()
+                        try:
+                            ws["status_msg"] = await app.bot.send_message(
+                                chat_id=chat_id, text=f"🧠 [{label}] 思考中... (0s)")
+                        except Exception:
+                            ws["status_msg"] = None
+                    elif ws["status_msg"] and ws["think_start"]:
+                        try:
+                            await ws["status_msg"].edit_text(
+                                f"🧠 [{label}] 思考中... ({_fmt_elapsed(ws['think_start'])})")
+                        except Exception:
+                            pass
 
-                    logger.info("[被动监控] 检测到本地操作完成，转发结果")
+                elif st == "idle" and ws["was_thinking"]:
+                    ws["idle_count"] += 1
+                    if ws["idle_count"] >= 2:
+                        # 再次确认
+                        title2 = await asyncio.to_thread(get_window_title, handle)
+                        if title2 and detect_claude_state(title2) == "thinking":
+                            ws["idle_count"] = 0
+                            continue
 
-                    # Check quiet hours
-                    qs, qe = state.get("quiet_start"), state.get("quiet_end")
-                    if qs is not None and qe is not None:
-                        hour = time.localtime().tm_hour
-                        if qs > qe:  # overnight like 23-8
-                            if hour >= qs or hour < qe:
-                                was_thinking = False; idle_count = 0; continue
-                        elif qs <= hour < qe:
-                            was_thinking = False; idle_count = 0; continue
+                        # 删除思考状态消息
+                        if ws["status_msg"]:
+                            try: await ws["status_msg"].delete()
+                            except Exception: pass
+                            ws["status_msg"] = None
+                            ws["think_start"] = None
 
-                    # 智能通知: 5分钟内没有 TG 消息则静默（用户在电脑前）
-                    if time.time() - state.get("last_tg_msg_time", 0) > 300:
-                        logger.info("[被动监控] 用户不在 TG，静默跳过")
-                        was_thinking = False
-                        idle_count = 0
-                        continue
+                        logger.info(f"[被动监控] [{label}] 检测到完成，转发结果")
 
-                    await _forward_result(chat_id, handle, app)
+                        # Check quiet hours
+                        qs, qe = state.get("quiet_start"), state.get("quiet_end")
+                        if qs is not None and qe is not None:
+                            hour = time.localtime().tm_hour
+                            in_quiet = (hour >= qs or hour < qe) if qs > qe else (qs <= hour < qe)
+                            if in_quiet:
+                                ws["was_thinking"] = False; ws["idle_count"] = 0; continue
 
-                    was_thinking = False
-                    idle_count = 0
-            else:
-                idle_count = 0
+                        # 智能通知: 5分钟内没有 TG 消息则静默（用户在电脑前）
+                        if time.time() - state.get("last_tg_msg_time", 0) > 300:
+                            logger.info("[被动监控] 用户不在 TG，静默跳过")
+                            ws["was_thinking"] = False; ws["idle_count"] = 0; continue
+
+                        await app.bot.send_message(chat_id=chat_id, text=f"📌{label} 完成")
+                        await _forward_result(chat_id, handle, app)
+
+                        ws["was_thinking"] = False
+                        ws["idle_count"] = 0
+                else:
+                    ws["idle_count"] = 0
 
         except asyncio.CancelledError:
             break

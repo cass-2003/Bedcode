@@ -11,7 +11,7 @@ from pathlib import Path
 from telegram import InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from config import state, LABELS_FILE, RECENT_DIRS_FILE, TEMPLATES_FILE, PANEL_FILE, ALIASES_FILE
+from config import state, LABELS_FILE, RECENT_DIRS_FILE, TEMPLATES_FILE, PANEL_FILE, ALIASES_FILE, STATE_FILE
 from win32_api import get_window_title
 from claude_detect import find_claude_windows
 
@@ -254,3 +254,43 @@ def _save_msg_file(text: str) -> str:
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(text)
     return filepath
+
+
+def _save_state():
+    """Persist selected state fields to disk."""
+    data = {
+        "session_costs": {str(k): v for k, v in state.get("session_costs", {}).items()},
+        "auto_monitor": state.get("auto_monitor", True),
+        "auto_yes": state.get("auto_yes", False),
+        "auto_pin": state.get("auto_pin", True),
+        "quiet_start": state.get("quiet_start"),
+        "quiet_end": state.get("quiet_end"),
+        "screenshot_interval": state.get("screenshot_interval", 15),
+        "cwd": state.get("cwd", ""),
+        "chat_id": state.get("chat_id"),
+        "stream_mode": state.get("stream_mode", False),
+    }
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception as e:
+        logger.warning(f"保存状态失败: {e}")
+
+
+def _load_state():
+    """Restore state from disk."""
+    if not os.path.exists(STATE_FILE):
+        return
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        costs = data.get("session_costs", {})
+        state["session_costs"] = {int(k): v for k, v in costs.items()}
+        for key in ("auto_monitor", "auto_yes", "auto_pin", "stream_mode"):
+            if key in data:
+                state[key] = data[key]
+        for key in ("quiet_start", "quiet_end", "screenshot_interval", "cwd", "chat_id"):
+            if key in data and data[key] is not None:
+                state[key] = data[key]
+    except Exception as e:
+        logger.warning(f"加载状态失败: {e}")

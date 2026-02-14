@@ -37,13 +37,19 @@ def read_terminal_text(handle: int) -> str:
                 iface = child.iface_text
                 if iface:
                     text = iface.DocumentRange.GetText(-1)
+                    if isinstance(text, bytes):
+                        text = text.decode('utf-8', errors='replace')
                     if text and len(text.strip()) > 10:
+                        text = text.encode('utf-8', errors='replace').decode('utf-8')
                         return text
             except Exception:
                 pass
             try:
                 val = child.legacy_properties().get("Value", "")
+                if isinstance(val, bytes):
+                    val = val.decode('utf-8', errors='replace')
                 if val and len(val.strip()) > 10:
+                    val = val.encode('utf-8', errors='replace').decode('utf-8')
                     return val
             except Exception:
                 pass

@@ -5,6 +5,7 @@ import time
 import asyncio
 import subprocess
 import tempfile
+import pathlib
 import logging
 
 from telegram import (
@@ -39,6 +40,7 @@ from utils import (
     send_result, _get_handle, _save_labels, _build_dir_buttons,
     _save_recent_dir, _needs_file, _save_msg_file, IMG_DIR,
     _save_templates, _load_panel, _save_panel, _save_aliases,
+    _save_state,
 )
 
 logger = logging.getLogger("bedcode")
@@ -102,6 +104,19 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(text, parse_mode="HTML", reply_markup=REPLY_KEYBOARD)
 
 
+async def _ocr_extract(img_data: bytes) -> str:
+    """Extract text from screenshot bytes via pytesseract."""
+    try:
+        import pytesseract
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(img_data))
+        text = await asyncio.to_thread(pytesseract.image_to_string, img)
+        return text.strip()
+    except ImportError:
+        return ""
+
+
 async def cmd_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     handle = await _get_handle()
     if not handle:
@@ -110,8 +125,32 @@ async def cmd_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     img_data = await asyncio.to_thread(capture_window_screenshot, handle)
     if img_data:
         await context.bot.send_photo(chat_id=update.effective_chat.id, photo=img_data)
+        # /screenshot ocr → also extract text
+        if context.args and context.args[0].lower() == "ocr":
+            text = await _ocr_extract(img_data)
+            if text:
+                await send_result(update.effective_chat.id, f"\U0001f4dd OCR:\n{text}", context)
+            else:
+                await update.message.reply_text("\u26a0\ufe0f pytesseract \u672a\u5b89\u88c5\u6216 OCR \u65e0\u7ed3\u679c")
     else:
         await update.message.reply_text("截屏失败")
+
+
+async def cmd_ocr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Take screenshot and send OCR text only (no image)."""
+    handle = await _get_handle()
+    if not handle:
+        await update.message.reply_text("未找到窗口，先 /windows")
+        return
+    img_data = await asyncio.to_thread(capture_window_screenshot, handle)
+    if not img_data:
+        await update.message.reply_text("截屏失败")
+        return
+    text = await _ocr_extract(img_data)
+    if text:
+        await send_result(update.effective_chat.id, f"\U0001f4dd OCR:\n{text}", context)
+    else:
+        await update.message.reply_text("\u26a0\ufe0f pytesseract \u672a\u5b89\u88c5\u6216 OCR \u65e0\u7ed3\u679c")
 
 
 async def cmd_grab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -143,6 +182,7 @@ async def cmd_delay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         delay = max(3, min(300, int(args)))
         state["screenshot_interval"] = delay
         await update.message.reply_text(f"截图间隔设为 {delay}s")
+        _save_state()
     except ValueError:
         await update.message.reply_text("请输入数字")
 
@@ -150,6 +190,7 @@ async def cmd_delay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_auto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state["auto_monitor"] = not state["auto_monitor"]
     await update.message.reply_text(f"自动监控: {'开启' if state['auto_monitor'] else '关闭'}")
+    _save_state()
 
 
 async def cmd_autoyes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -158,6 +199,7 @@ async def cmd_autoyes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     state["auto_yes"] = not state["auto_yes"]
     await update.message.reply_text(f"自动确认: {'开启' if state['auto_yes'] else '关闭'}")
+    _save_state()
 
 
 async def cmd_key(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1005,9 +1047,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text("⚠️ 文件过大 (>10MB)")
         return
     file = await context.bot.get_file(doc.file_id)
-    safe_name = os.path.basename(doc.file_name or "upload").replace("..", "").strip()
-    if not safe_name:
-        safe_name = "upload"
+    safe_name = pathlib.Path(doc.file_name or "upload").name.strip() or "upload"
     filepath = os.path.join(state["cwd"], safe_name)
     await file.download_to_drive(filepath)
     logger.info(f"文件已保存: {filepath}")
@@ -1179,6 +1219,7 @@ async def cmd_quiet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         state["quiet_start"] = None
         state["quiet_end"] = None
         await update.message.reply_text("免打扰已关闭")
+        _save_state()
         return
     try:
         s, e = args.split("-")
@@ -1191,6 +1232,7 @@ async def cmd_quiet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state["quiet_start"] = qs
     state["quiet_end"] = qe
     await update.message.reply_text(f"免打扰已设置: {qs}:00 - {qe}:00")
+    _save_state()
 
 
 async def cmd_alias(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1234,3 +1276,25 @@ async def cmd_batch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     for m in msgs:
         state["msg_queue"].append(m)
     await update.message.reply_text(f"📋 已加入队列 {len(msgs)} 条消息")
+
+
+async def cmd_tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = " ".join(context.args).strip() if context.args else ""
+    if not args:
+        from claude_detect import read_last_transcript_response
+        args = await asyncio.to_thread(read_last_transcript_response)
+    if not args or len(args.strip()) < 5:
+        await update.message.reply_text("无内容可转语音")
+        return
+    text = args[:2000]
+    try:
+        import edge_tts
+        tts = edge_tts.Communicate(text, "zh-CN-XiaoxiaoNeural")
+        outfile = os.path.join(VOICE_DIR, f"tts_{int(time.time())}.mp3")
+        await tts.save(outfile)
+        with open(outfile, "rb") as f:
+            await context.bot.send_voice(chat_id=update.effective_chat.id, voice=f)
+    except ImportError:
+        await update.message.reply_text("⚠️ edge-tts 未安装: pip install edge-tts")
+    except Exception as e:
+        await update.message.reply_text(f"TTS 失败: {e}")
