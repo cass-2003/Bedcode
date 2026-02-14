@@ -67,17 +67,20 @@ def _parse_prompt_type(prompt_text: str) -> list[tuple[str, str]]:
     return []
 
 
-async def _update_status(chat_id: int, text: str, context: ContextTypes.DEFAULT_TYPE) -> None:
+_BREAK_MARKUP = InlineKeyboardMarkup([[InlineKeyboardButton("🛑 Ctrl+C", callback_data="break:ctrlc")]])
+
+
+async def _update_status(chat_id: int, text: str, context: ContextTypes.DEFAULT_TYPE, markup=None) -> None:
     msg = state.get("status_msg")
     if msg:
         try:
-            await msg.edit_text(text)
+            await msg.edit_text(text, reply_markup=markup)
             return
         except Exception:
             pass
     try:
         state["status_msg"] = await context.bot.send_message(
-            chat_id=chat_id, text=text
+            chat_id=chat_id, text=text, reply_markup=markup
         )
     except Exception:
         pass
@@ -151,7 +154,7 @@ async def _monitor_loop(
             was_thinking = True
             last_state = "thinking"
             grace_period = 0
-            await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)})", context)
+            await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)})", context, markup=_BREAK_MARKUP)
 
         while True:
             await asyncio.sleep(1.5)
@@ -170,7 +173,7 @@ async def _monitor_loop(
                     was_thinking = True
                     grace_period = 0
                     last_state = "thinking"
-                    await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)})", context)
+                    await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)})", context, markup=_BREAK_MARKUP)
                 elif grace_period == 0:
                     img_data = await asyncio.to_thread(capture_window_screenshot, handle)
                     if img_data:
@@ -192,7 +195,7 @@ async def _monitor_loop(
             if st == "thinking":
                 was_thinking = True
                 idle_count = 0
-                await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)}){_build_queue_text()}", context)
+                await _update_status(chat_id, f"⏳ Claude 思考中... ({_fmt_elapsed(start_time)}){_build_queue_text()}", context, markup=_BREAK_MARKUP)
                 last_state = st
 
                 # 思考超时自动截图: ~30s, ~90s, ~180s

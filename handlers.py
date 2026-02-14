@@ -615,6 +615,14 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             parse_mode="HTML",
         )
 
+    elif data == "break:ctrlc":
+        handle = state.get("target_handle")
+        if handle:
+            success = await asyncio.to_thread(send_ctrl_c, handle)
+            await query.edit_message_text("⚡ Ctrl+C 已发送" if success else "❌ 发送失败")
+        else:
+            await query.edit_message_text("❌ 无目标窗口")
+
     elif data.startswith("qr:"):
         keys = data[3:]
         handle = await _get_handle()
