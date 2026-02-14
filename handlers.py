@@ -763,7 +763,7 @@ async def _launch_new_claude(chat_id: int, context: ContextTypes.DEFAULT_TYPE, w
         wt_path = os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WindowsApps\wt.exe")
         git_bash = os.environ.get("GIT_BASH_PATH", GIT_BASH_PATH)
         bat_path = os.path.join(tempfile.gettempdir(), "bedcode_launch.bat")
-        with open(bat_path, "w", encoding="ascii") as f:
+        with open(bat_path, "w", encoding="utf-8") as f:
             f.write(f"@set CLAUDE_CODE_GIT_BASH_PATH={git_bash}\n")
             f.write(f"@cd /d \"{work_dir}\"\n")
             f.write("@claude\n")
@@ -1013,10 +1013,11 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         try:
             from openai import OpenAI
             client = OpenAI(api_key=api_key)
-            with open(filepath, "rb") as audio_file:
-                transcription = await asyncio.to_thread(
-                    lambda: client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-                )
+            audio_bytes = open(filepath, "rb").read()
+            import io as _io
+            transcription = await asyncio.to_thread(
+                lambda: client.audio.transcriptions.create(model="whisper-1", file=("audio.ogg", _io.BytesIO(audio_bytes)))
+            )
             text = transcription.text.strip()
             await update.message.reply_text(f"🎤 识别结果: {text}")
             state["cmd_history"].append(text)
@@ -1047,6 +1048,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     file = await context.bot.get_file(doc.file_id)
     safe_name = pathlib.Path(doc.file_name or "upload").name.strip() or "upload"
+    if ".." in safe_name:
+        safe_name = "upload"
     filepath = os.path.join(state["cwd"], safe_name)
     await file.download_to_drive(filepath)
     logger.info(f"文件已保存: {filepath}")
@@ -1153,7 +1156,10 @@ async def cmd_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text("格式: /schedule 时间 消息内容")
         return
     time_str, text = parts
-    multiplier = {"s": 1, "m": 60, "h": 3600}.get(time_str[-1])
+    if not time_str or time_str[-1] not in "smh":
+        await update.message.reply_text("无效时间格式，示例: 10s / 5m / 1h")
+        return
+    multiplier = {"s": 1, "m": 60, "h": 3600}[time_str[-1]]
     try:
         val = int(time_str[:-1])
     except ValueError:
