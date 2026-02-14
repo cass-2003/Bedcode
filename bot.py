@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BedCode v5 — Telegram Bot + Web API 远程操控 Claude Code"""
+"""BedCode v6 — Telegram Bot + Web API 远程操控 Claude Code"""
 import os
 import asyncio
 import signal
@@ -128,7 +128,7 @@ async def run_all():
     setup_routes()
 
     api_port = int(os.environ.get("API_PORT", "8080"))
-    logger.info(f"BedCode v5 启动 | TG用户: {ALLOWED_USERS} | API: http://0.0.0.0:{api_port} | Token: {API_TOKEN}")
+    logger.info(f"BedCode v6 启动 | TG用户: {ALLOWED_USERS} | API: http://0.0.0.0:{api_port} | Token: {API_TOKEN}")
 
     import uvicorn
     uvi_config = uvicorn.Config(

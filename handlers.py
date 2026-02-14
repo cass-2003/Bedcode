@@ -88,7 +88,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     monitor_status = "运行中" if state.get("monitor_task") and not state["monitor_task"].done() else "未启动"
     text = (
-        "<b>BedCode v5 在线</b>\n\n"
+        "<b>BedCode v6 在线</b>\n\n"
         "<b>使用方式：</b>\n"
         "• 直接发消息 → 注入 Claude Code 终端\n"
         "• <code>!命令</code> → 执行 Shell 命令\n"
