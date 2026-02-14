@@ -163,12 +163,13 @@ async def _monitor_loop(
                 await _update_status(chat_id, "⏰ 监控超时 (60分钟)，已自动停止", context)
                 break
 
+            title = await asyncio.to_thread(get_window_title, handle)
+            if not title:
+                break
+            st = detect_claude_state(title)
+
             if not was_thinking and grace_period > 0:
                 grace_period -= 1
-                title = await asyncio.to_thread(get_window_title, handle)
-                if not title:
-                    break
-                st = detect_claude_state(title)
                 if st == "thinking":
                     was_thinking = True
                     grace_period = 0
@@ -184,12 +185,6 @@ async def _monitor_loop(
                     await _delete_status()
                     break
                 continue
-
-            title = await asyncio.to_thread(get_window_title, handle)
-            if not title:
-                break
-
-            st = detect_claude_state(title)
             logger.info(f"监控状态: title={title[:30]!r} state={st} was_thinking={was_thinking} idle_count={idle_count}")
 
             if st == "thinking":
@@ -375,7 +370,7 @@ async def _passive_monitor_loop(app) -> None:
 
     while True:
         try:
-            await asyncio.sleep(2)
+            await asyncio.sleep(5)
 
             # 定期清理已完成的 scheduled_tasks
             if state.get("scheduled_tasks"):

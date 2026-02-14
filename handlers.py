@@ -1281,9 +1281,17 @@ async def cmd_batch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("没有有效消息")
         return
     async with _queue_lock:
-        for m in msgs:
+        space = 50 - len(state["msg_queue"])
+        if space <= 0:
+            await update.message.reply_text("⚠️ 队列已满 (50条)")
+            return
+        added = msgs[:space]
+        for m in added:
             state["msg_queue"].append(m)
-    await update.message.reply_text(f"📋 已加入队列 {len(msgs)} 条消息")
+    if len(added) < len(msgs):
+        await update.message.reply_text(f"📋 已加入 {len(added)} 条，{len(msgs)-len(added)} 条因队列满被丢弃")
+    else:
+        await update.message.reply_text(f"📋 已加入队列 {len(added)} 条消息")
 
 
 async def cmd_tts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
