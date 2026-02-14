@@ -77,7 +77,7 @@ async def _update_status(chat_id: int, text: str, context: ContextTypes.DEFAULT_
             await msg.edit_text(text, reply_markup=markup)
             return
         except Exception:
-            pass
+            state["status_msg"] = None
     try:
         state["status_msg"] = await context.bot.send_message(
             chat_id=chat_id, text=text, reply_markup=markup
@@ -237,7 +237,7 @@ async def _monitor_loop(
                             [[InlineKeyboardButton(label, callback_data=f"qr:{keys}")
                               for label, keys in qr_buttons]]
                         )
-                    safe_prompt = html.escape(prompt[-1500:])
+                    safe_prompt = html.escape(prompt[-1500:])[:3800]
                     try:
                         await context.bot.send_message(
                             chat_id=chat_id,

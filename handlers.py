@@ -397,7 +397,7 @@ async def cmd_proj(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     buttons = []
     for p in projects:
         marker = " ✔" if cur_title and p["name"].lower() in cur_title.lower() else ""
-        buttons.append([InlineKeyboardButton(f"📂 {p['name']}{marker}", callback_data=f"proj:{p['dir_name']}")])
+        buttons.append([InlineKeyboardButton(f"📂 {p['name']}{marker}", callback_data=f"proj:{p['dir_name'][:56]}")])
     await update.message.reply_text(
         f"{cur_info}\n\n<b>最近项目：</b>",
         parse_mode="HTML",
@@ -954,6 +954,7 @@ async def _inject_to_claude(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         if handle:
             success = await asyncio.to_thread(send_keys_to_window, handle, inject_text)
         if not success:
+            _cancel_monitor()
             state["target_handle"] = None
             await _update_status(update.effective_chat.id, "❌ 发送失败，窗口可能已关闭\n发 /windows 重新扫描", context)
             return
