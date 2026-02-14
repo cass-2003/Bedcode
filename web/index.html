@@ -246,7 +246,7 @@ function handleWSEvent(msg) {
         const panel = document.getElementById('text-panel');
         panel.textContent = msg.text;
         panel.classList.add('open');
-        logMsg(msg.text.substring(0,100), 'recv');
+        logMsg(msg.text.substring(0,2000), 'recv');
       }
       break;
     case 'completion':
@@ -270,7 +270,15 @@ function _renderMsgLog() {
     const div = document.createElement('div');
     div.className = 'msg ' + m.d;
     const arrow = m.d === 'sent' ? '→' : '←';
-    div.innerHTML = `<span class="time">${m.t}</span><span class="dir">${arrow}</span>${esc(m.x)}`;
+    const short = m.x.length > 80 ? m.x.substring(0,80) + '…' : m.x;
+    div.innerHTML = `<span class="time">${m.t}</span><span class="dir">${arrow}</span><span class="mx">${esc(short)}</span>`;
+    if (m.x.length > 80) {
+      div.style.cursor = 'pointer';
+      div.onclick = () => {
+        const sp = div.querySelector('.mx');
+        sp.textContent = sp.textContent === short ? m.x : short;
+      };
+    }
     log.appendChild(div);
   });
   log.scrollTop = log.scrollHeight;
@@ -278,7 +286,7 @@ function _renderMsgLog() {
 
 function logMsg(text, dir='sent') {
   const t = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
-  _msgHistory.push({t, d: dir, x: text.substring(0,200)});
+  _msgHistory.push({t, d: dir, x: text.substring(0,2000)});
   if (_msgHistory.length > 100) _msgHistory = _msgHistory.slice(-50);
   localStorage.setItem('bedcode_msgs', JSON.stringify(_msgHistory));
   _renderMsgLog();
