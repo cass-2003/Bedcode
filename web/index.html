@@ -152,9 +152,11 @@ async function doUndo() {
 async function doGrab() {
   const r = await api('/grab');
   if (!r) return;
-  const panel = document.getElementById('text-panel');
-  panel.textContent = r.text || '(空)';
-  panel.classList.add('open');
+  if (r.text && r.text.trim().length > 10) {
+    const panel = document.getElementById('text-panel');
+    panel.textContent = r.text;
+    panel.classList.add('open');
+  }
 }
 
 async function doRefresh() {
@@ -340,10 +342,11 @@ document.getElementById('msg-input').addEventListener('keydown', e => {
 document.addEventListener('paste', async e => {
   const items = e.clipboardData?.items;
   if (!items) return;
-  for (const item of items) {
-    if (item.type.startsWith('image/')) {
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.startsWith('image/')) {
       e.preventDefault();
-      const blob = item.getAsFile();
+      const blob = items[i].getAsFile();
+      if (!blob) { toast('无法读取图片'); return; }
       const caption = document.getElementById('msg-input').value.trim();
       document.getElementById('msg-input').value = '';
       const fd = new FormData();
@@ -351,11 +354,11 @@ document.addEventListener('paste', async e => {
       fd.append('caption', caption);
       toast('📤 上传图片...');
       try {
-        const r = await fetch(API + '/api/image', {headers: {'Authorization': 'Bearer ' + TOKEN}, method: 'POST', body: fd});
+        const r = await fetch(API + '/api/image', {method: 'POST', headers: {'Authorization': 'Bearer ' + TOKEN}, body: fd});
         const j = await r.json();
         if (j.status === 'sent') { toast('🖼 图片已发送'); logMsg('🖼 ' + (caption || '图片'), 'sent'); startAutoRefresh(); }
         else toast(j.message || '发送失败');
-      } catch(err) { toast('上传失败'); }
+      } catch(err) { toast('上传失败: ' + err.message); }
       return;
     }
   }
