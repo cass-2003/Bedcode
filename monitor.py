@@ -11,7 +11,7 @@ from telegram.ext import ContextTypes
 from config import state
 from win32_api import (
     capture_window_screenshot, _image_hash, get_window_title,
-    send_keys_to_window,
+    send_keys_to_window, send_raw_keys,
 )
 from claude_detect import detect_claude_state, read_terminal_text, read_last_transcript_response, find_claude_windows
 from utils import send_result
@@ -203,6 +203,18 @@ async def _monitor_loop(
                 prompt = _detect_interactive_prompt(text) if text else None
                 if prompt:
                     logger.info(f"[监控] thinking 状态下检测到交互提示")
+                    # autoyes: 自动回复 y/n 提示
+                    if state.get("auto_yes") and _parse_prompt_type(prompt):
+                        parsed = _parse_prompt_type(prompt)
+                        if parsed and parsed[0][0] == "✅ Yes":
+                            keys = parsed[0][1].split()
+                            await asyncio.to_thread(send_raw_keys, handle, keys)
+                            logger.info("[监控] autoyes: 自动回复 y")
+                            await context.bot.send_message(chat_id=chat_id, text="🤖 autoyes: 自动确认 y")
+                            was_thinking = False
+                            idle_count = 0
+                            grace_period = 5
+                            continue
                     img_data = await asyncio.to_thread(capture_window_screenshot, handle)
                     if img_data:
                         try:
@@ -245,6 +257,13 @@ async def _monitor_loop(
                     await _delete_status()
 
                     await _forward_result(chat_id, handle, context)
+
+                    if state.get("auto_pin", True):
+                        try:
+                            pin_msg = await context.bot.send_message(chat_id=chat_id, text="\ud83d\udccc Claude \u5b8c\u6210")
+                            await context.bot.pin_chat_message(chat_id=chat_id, message_id=pin_msg.message_id, disable_notification=True)
+                        except Exception:
+                            pass
 
                     async with _queue_lock:
                         has_queued = bool(state["msg_queue"])
@@ -412,6 +431,16 @@ async def _passive_monitor_loop(app) -> None:
                         think_start = None
 
                     logger.info("[被动监控] 检测到本地操作完成，转发结果")
+
+                    # Check quiet hours
+                    qs, qe = state.get("quiet_start"), state.get("quiet_end")
+                    if qs is not None and qe is not None:
+                        hour = time.localtime().tm_hour
+                        if qs > qe:  # overnight like 23-8
+                            if hour >= qs or hour < qe:
+                                was_thinking = False; idle_count = 0; continue
+                        elif qs <= hour < qe:
+                            was_thinking = False; idle_count = 0; continue
 
                     # 智能通知: 5分钟内没有 TG 消息则静默（用户在电脑前）
                     if time.time() - state.get("last_tg_msg_time", 0) > 300:

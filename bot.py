@@ -14,7 +14,7 @@ from telegram.ext import (
 
 from config import BOT_TOKEN, ALLOWED_USERS, BOT_COMMANDS, state, logger
 from claude_detect import find_claude_windows
-from utils import _load_labels, _load_templates, _load_panel
+from utils import _load_labels, _load_templates, _load_panel, _load_aliases
 from stream_mode import _kill_stream_proc
 from handlers import (
     auth_gate,
@@ -24,7 +24,8 @@ from handlers import (
     cmd_cost, cmd_export, cmd_undo,
     cmd_diff, cmd_log, cmd_search, cmd_schedule,
     cmd_tpl, cmd_proj,
-    cmd_panel,
+    cmd_panel, cmd_clip, cmd_autoyes,
+    cmd_quiet, cmd_alias, cmd_batch,
     callback_handler, handle_message, handle_photo,
     handle_voice, handle_document,
 )
@@ -37,6 +38,7 @@ _panel_rows = _load_panel()
 if _panel_rows:
     from handlers import _build_panel_markup
     state["custom_panel"] = _build_panel_markup(_panel_rows)
+state["aliases"] = _load_aliases()
 
 
 async def error_handler(update: object, context) -> None:
@@ -120,6 +122,11 @@ def main() -> None:
     app.add_handler(CommandHandler("proj", cmd_proj))
     app.add_handler(CommandHandler("tpl", cmd_tpl))
     app.add_handler(CommandHandler("panel", cmd_panel))
+    app.add_handler(CommandHandler("clip", cmd_clip))
+    app.add_handler(CommandHandler("autoyes", cmd_autoyes))
+    app.add_handler(CommandHandler("quiet", cmd_quiet))
+    app.add_handler(CommandHandler("alias", cmd_alias))
+    app.add_handler(CommandHandler("batch", cmd_batch))
     app.add_handler(CallbackQueryHandler(callback_handler))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))

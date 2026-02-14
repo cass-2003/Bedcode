@@ -11,7 +11,7 @@ from pathlib import Path
 from telegram import InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from config import state, LABELS_FILE, RECENT_DIRS_FILE, TEMPLATES_FILE, PANEL_FILE
+from config import state, LABELS_FILE, RECENT_DIRS_FILE, TEMPLATES_FILE, PANEL_FILE, ALIASES_FILE
 from win32_api import get_window_title
 from claude_detect import find_claude_windows
 
@@ -143,6 +143,24 @@ def _save_labels():
             json.dump({str(k): v for k, v in state["window_labels"].items()}, f, ensure_ascii=False)
     except Exception as e:
         logger.warning(f"保存标签失败: {e}")
+
+
+def _load_aliases() -> dict:
+    if os.path.exists(ALIASES_FILE):
+        try:
+            with open(ALIASES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"加载别名失败: {e}")
+    return {}
+
+
+def _save_aliases():
+    try:
+        with open(ALIASES_FILE, "w", encoding="utf-8") as f:
+            json.dump(state["aliases"], f, ensure_ascii=False)
+    except Exception as e:
+        logger.warning(f"保存别名失败: {e}")
 
 
 def _load_templates() -> dict:

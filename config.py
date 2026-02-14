@@ -48,6 +48,7 @@ LABELS_FILE = os.path.join(_BASE_DIR, "window_labels.json")
 RECENT_DIRS_FILE = os.path.join(_BASE_DIR, "recent_dirs.json")
 TEMPLATES_FILE = os.path.join(_BASE_DIR, "templates.json")
 PANEL_FILE = os.path.join(_BASE_DIR, "panel.json")
+ALIASES_FILE = os.path.join(_BASE_DIR, "aliases.json")
 
 # ── 日志 ─────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -86,6 +87,11 @@ BOT_COMMANDS = [
     BotCommand("schedule", "定时发送消息"),
     BotCommand("panel", "自定义按钮面板"),
     BotCommand("proj", "快速切换项目"),
+    BotCommand("quiet", "设置免打扰时段"),
+    BotCommand("alias", "命令别名管理"),
+    BotCommand("clip", "剪贴板同步"),
+    BotCommand("autoyes", "自动确认 y/n 提示"),
+    BotCommand("batch", "批量排队消息"),
 ]
 
 # ── 常驻按钮面板 ─────────────────────────────────────────────────
@@ -125,4 +131,9 @@ state = {
     "templates": {},
     "scheduled_tasks": [],
     "custom_panel": None,
+    "quiet_start": None,
+    "quiet_end": None,
+    "aliases": {},
+    "auto_pin": True,
+    "auto_yes": False,
 }

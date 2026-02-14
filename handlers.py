@@ -27,6 +27,7 @@ from win32_api import (
     _send_unicode_char, _send_vk, VK_RETURN,
     copy_image_to_clipboard, paste_image_to_window,
     send_ctrl_c, send_ctrl_z,
+    get_clipboard_text, set_clipboard_text,
 )
 from claude_detect import (
     detect_claude_state, find_claude_windows,
@@ -37,7 +38,7 @@ from stream_mode import _stream_send, _kill_stream_proc, GIT_BASH_PATH
 from utils import (
     send_result, _get_handle, _save_labels, _build_dir_buttons,
     _save_recent_dir, _needs_file, _save_msg_file, IMG_DIR,
-    _save_templates, _load_panel, _save_panel,
+    _save_templates, _load_panel, _save_panel, _save_aliases,
 )
 
 logger = logging.getLogger("bedcode")
@@ -149,6 +150,14 @@ async def cmd_delay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_auto(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state["auto_monitor"] = not state["auto_monitor"]
     await update.message.reply_text(f"自动监控: {'开启' if state['auto_monitor'] else '关闭'}")
+
+
+async def cmd_autoyes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if _is_readonly(update):
+        await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+        return
+    state["auto_yes"] = not state["auto_yes"]
+    await update.message.reply_text(f"自动确认: {'开启' if state['auto_yes'] else '关闭'}")
 
 
 async def cmd_key(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -478,6 +487,23 @@ async def cmd_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("用法: /panel | /panel add 文字 | /panel del 文字 | /panel reset")
 
 
+async def cmd_clip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = " ".join(context.args).strip() if context.args else ""
+    if args.startswith("set "):
+        if _is_readonly(update):
+            await update.message.reply_text("\ud83d\udd12 只读用户无此权限")
+            return
+        text = args[4:]
+        ok = await asyncio.to_thread(set_clipboard_text, text)
+        await update.message.reply_text("✅ 已写入剪贴板" if ok else "❌ 写入失败")
+    else:
+        content = await asyncio.to_thread(get_clipboard_text)
+        if content:
+            await send_result(update.effective_chat.id, content, context)
+        else:
+            await update.message.reply_text("📋 剪贴板为空")
+
+
 # ── 回调处理 ──────────────────────────────────────────────────────
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -782,6 +808,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             parse_mode="HTML",
         )
         return
+
+    # Alias expansion
+    aliases = state.get("aliases", {})
+    if aliases and text in aliases:
+        text = aliases[text]
 
     BUTTON_MAP = {
         "📷 截屏": cmd_screenshot,
@@ -1096,16 +1127,19 @@ async def cmd_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     chat_id = update.effective_chat.id
 
     async def _scheduled_send():
-        await asyncio.sleep(delay)
-        handle = await _get_handle()
-        if handle:
-            await asyncio.to_thread(send_keys_to_window, handle, text)
-            try:
-                await context.bot.send_message(chat_id=chat_id, text=f"⏰ 定时消息已发送: {text[:80]}")
-            except Exception:
-                pass
-            if state["auto_monitor"]:
-                _start_monitor(handle, chat_id, context)
+        try:
+            await asyncio.sleep(delay)
+            handle = await _get_handle()
+            if handle:
+                await asyncio.to_thread(send_keys_to_window, handle, text)
+                try:
+                    await context.bot.send_message(chat_id=chat_id, text=f"⏰ 定时消息已发送: {text[:80]}")
+                except Exception:
+                    pass
+                if state["auto_monitor"]:
+                    _start_monitor(handle, chat_id, context)
+        finally:
+            state["scheduled_tasks"] = [t for t in state["scheduled_tasks"] if not t["task"].done()]
 
     task = asyncio.create_task(_scheduled_send())
     state["scheduled_tasks"].append({"text": text, "fire_at": fire_at, "task": task})
@@ -1130,3 +1164,73 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(buttons),
     )
+
+
+async def cmd_quiet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = " ".join(context.args).strip() if context.args else ""
+    if not args:
+        qs, qe = state.get("quiet_start"), state.get("quiet_end")
+        if qs is not None and qe is not None:
+            await update.message.reply_text(f"免打扰: {qs}:00 - {qe}:00\n/quiet off 关闭")
+        else:
+            await update.message.reply_text("免打扰: 关闭\n用法: /quiet 23-8")
+        return
+    if args == "off":
+        state["quiet_start"] = None
+        state["quiet_end"] = None
+        await update.message.reply_text("免打扰已关闭")
+        return
+    try:
+        s, e = args.split("-")
+        qs, qe = int(s), int(e)
+        if not (0 <= qs <= 23 and 0 <= qe <= 23):
+            raise ValueError
+    except (ValueError, TypeError):
+        await update.message.reply_text("格式: /quiet 23-8 (小时 0-23)")
+        return
+    state["quiet_start"] = qs
+    state["quiet_end"] = qe
+    await update.message.reply_text(f"免打扰已设置: {qs}:00 - {qe}:00")
+
+
+async def cmd_alias(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = " ".join(context.args).strip() if context.args else ""
+    if not args:
+        aliases = state.get("aliases", {})
+        if not aliases:
+            await update.message.reply_text("暂无别名\n用法: /alias ss screenshot")
+            return
+        lines = [f"/{k} → /{v}" for k, v in aliases.items()]
+        await update.message.reply_text("别名列表:\n" + "\n".join(lines))
+        return
+    if args.startswith("del "):
+        name = args[4:].strip()
+        if name in state.get("aliases", {}):
+            del state["aliases"][name]
+            _save_aliases()
+            await update.message.reply_text(f"已删除别名: {name}")
+        else:
+            await update.message.reply_text(f"别名 {name} 不存在")
+        return
+    parts = args.split(None, 1)
+    if len(parts) < 2:
+        await update.message.reply_text("用法: /alias 别名 命令\n例: /alias ss screenshot")
+        return
+    name, target = parts
+    state["aliases"][name] = target
+    _save_aliases()
+    await update.message.reply_text(f"已创建别名: /{name} → /{target}")
+
+
+async def cmd_batch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = " ".join(context.args).strip() if context.args else ""
+    if not args or "|" not in args:
+        await update.message.reply_text("用法: /batch msg1 | msg2 | msg3")
+        return
+    msgs = [m.strip() for m in args.split("|") if m.strip()]
+    if not msgs:
+        await update.message.reply_text("没有有效消息")
+        return
+    for m in msgs:
+        state["msg_queue"].append(m)
+    await update.message.reply_text(f"📋 已加入队列 {len(msgs)} 条消息")

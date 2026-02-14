@@ -348,6 +348,35 @@ def copy_image_to_clipboard(filepath: str) -> bool:
         return False
 
 
+def get_clipboard_text() -> str:
+    """Get text from Windows clipboard."""
+    import win32clipboard
+    try:
+        win32clipboard.OpenClipboard()
+        try:
+            data = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
+            return data or ""
+        finally:
+            win32clipboard.CloseClipboard()
+    except Exception:
+        return ""
+
+
+def set_clipboard_text(text: str) -> bool:
+    """Set text to Windows clipboard."""
+    import win32clipboard
+    try:
+        win32clipboard.OpenClipboard()
+        try:
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardData(win32clipboard.CF_UNICODETEXT, text)
+        finally:
+            win32clipboard.CloseClipboard()
+        return True
+    except Exception:
+        return False
+
+
 def paste_image_to_window(handle: int) -> bool:
     """激活窗口并发送 Alt+V 粘贴图片（通过 pywinauto.keyboard）。"""
     try:

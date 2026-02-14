@@ -25,6 +25,10 @@ async def _handle(reader, writer):
     writer.write(resp.encode())
     await writer.drain()
     writer.close()
+    try:
+        await writer.wait_closed()
+    except Exception:
+        pass
 
 
 async def start_health_server():
