@@ -65,6 +65,9 @@ BOT_COMMANDS = [
     BotCommand("new", "启动新 Claude Code 实例"),
     BotCommand("cd", "切换 Shell 工作目录"),
     BotCommand("history", "查看最近20条消息历史"),
+    BotCommand("cost", "查看本次会话费用"),
+    BotCommand("export", "导出最近对话记录"),
+    BotCommand("undo", "发送 Ctrl+Z 撤销"),
     BotCommand("reload", "热重载配置"),
 ]
 
@@ -101,4 +104,5 @@ state = {
     "chat_id": None,
     "passive_monitor_task": None,
     "last_tg_msg_time": 0,
+    "session_cost": 0.0,
 }

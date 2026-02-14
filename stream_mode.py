@@ -143,6 +143,8 @@ async def _stream_reader(proc, chat_id: int, context: ContextTypes.DEFAULT_TYPE)
                 logger.info(f"[流式] 收到 result, buf总计={len(buf)}字")
                 await _delete_status()
                 cost = data.get("total_cost_usd", 0)
+                if cost:
+                    state["session_cost"] += cost
                 if buf:
                     chunks = split_text(buf, 4000)
                     for chunk in chunks:

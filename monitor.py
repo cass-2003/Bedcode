@@ -13,7 +13,7 @@ from win32_api import (
     capture_window_screenshot, _image_hash, get_window_title,
     send_keys_to_window,
 )
-from claude_detect import detect_claude_state, read_terminal_text, read_last_transcript_response
+from claude_detect import detect_claude_state, read_terminal_text, read_last_transcript_response, find_claude_windows
 from utils import send_result
 
 logger = logging.getLogger("bedcode")
@@ -99,10 +99,13 @@ async def _forward_result(chat_id: int, handle: int, ctx) -> None:
     state["last_screenshot_hash"] = None
     img_data = await asyncio.to_thread(capture_window_screenshot, handle)
     if img_data:
-        try:
-            await bot.send_photo(chat_id=chat_id, photo=img_data)
-        except Exception:
-            pass
+        for _attempt in range(2):
+            try:
+                await bot.send_photo(chat_id=chat_id, photo=img_data)
+                break
+            except Exception:
+                if _attempt == 0:
+                    await asyncio.sleep(1)
     term_text = await asyncio.to_thread(read_last_transcript_response)
     if not term_text or len(term_text.strip()) <= 10:
         term_text = await asyncio.to_thread(read_terminal_text, handle)
@@ -285,10 +288,13 @@ async def _monitor_loop(
                     img_hash = _image_hash(img_data)
                     if img_hash != state["last_screenshot_hash"]:
                         state["last_screenshot_hash"] = img_hash
-                        try:
-                            await context.bot.send_photo(chat_id=chat_id, photo=img_data)
-                        except Exception:
-                            pass
+                        for _attempt in range(2):
+                            try:
+                                await context.bot.send_photo(chat_id=chat_id, photo=img_data)
+                                break
+                            except Exception:
+                                if _attempt == 0:
+                                    await asyncio.sleep(1)
 
     except asyncio.CancelledError:
         await _delete_status()
@@ -345,6 +351,15 @@ async def _passive_monitor_loop(app) -> None:
 
             title = await asyncio.to_thread(get_window_title, handle)
             if not title:
+                # 窗口已关闭，尝试自动重扫
+                windows = await asyncio.to_thread(find_claude_windows)
+                if windows:
+                    state["target_handle"] = windows[0]["handle"]
+                    logger.info(f"[被动监控] 窗口已关闭，自动切换到 {windows[0]['handle']}")
+                else:
+                    state["target_handle"] = None
+                was_thinking = False
+                idle_count = 0
                 continue
 
             st = detect_claude_state(title)

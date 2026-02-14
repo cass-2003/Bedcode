@@ -25,7 +25,7 @@ from win32_api import (
     send_keys_to_window, send_raw_keys,
     _send_unicode_char, _send_vk, VK_RETURN,
     copy_image_to_clipboard, paste_image_to_window,
-    send_ctrl_c,
+    send_ctrl_c, send_ctrl_z,
 )
 from claude_detect import (
     detect_claude_state, find_claude_windows,
@@ -203,6 +203,37 @@ async def cmd_break(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     success = await asyncio.to_thread(send_ctrl_c, handle)
     _cancel_monitor()
     await update.message.reply_text("⚡ Ctrl+C 已发送" if success else "❌ 发送失败")
+
+
+async def cmd_cost(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    cost = state.get("session_cost", 0.0)
+    await update.message.reply_text(f"💰 本次会话费用: ${cost:.4f}")
+
+
+async def cmd_export(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from claude_detect import read_last_transcript_response
+    text = await asyncio.to_thread(read_last_transcript_response)
+    if not text or len(text.strip()) < 10:
+        await update.message.reply_text("📭 没有可导出的对话记录")
+        return
+    filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "messages", f"export_{int(time.time())}.md")
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(text)
+    await context.bot.send_document(
+        chat_id=update.effective_chat.id,
+        document=open(filepath, "rb"),
+        filename=os.path.basename(filepath),
+        caption=f"📝 导出 {len(text)} 字",
+    )
+
+
+async def cmd_undo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    handle = await _get_handle()
+    if not handle:
+        await update.message.reply_text("未找到窗口，先 /windows")
+        return
+    success = await asyncio.to_thread(send_ctrl_z, handle)
+    await update.message.reply_text("↩️ Ctrl+Z 已发送" if success else "❌ 发送失败")
 
 
 async def cmd_windows(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

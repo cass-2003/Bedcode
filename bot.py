@@ -21,6 +21,7 @@ from handlers import (
     cmd_start, cmd_screenshot, cmd_grab, cmd_key,
     cmd_watch, cmd_stop, cmd_break, cmd_delay, cmd_auto,
     cmd_windows, cmd_new, cmd_cd, cmd_history, cmd_reload,
+    cmd_cost, cmd_export, cmd_undo,
     callback_handler, handle_message, handle_photo,
     handle_voice, handle_document,
 )
@@ -95,6 +96,9 @@ def main() -> None:
     app.add_handler(CommandHandler("new", cmd_new))
     app.add_handler(CommandHandler("cd", cmd_cd))
     app.add_handler(CommandHandler("history", cmd_history))
+    app.add_handler(CommandHandler("cost", cmd_cost))
+    app.add_handler(CommandHandler("export", cmd_export))
+    app.add_handler(CommandHandler("undo", cmd_undo))
     app.add_handler(CommandHandler("reload", cmd_reload))
     app.add_handler(CallbackQueryHandler(callback_handler))
 
