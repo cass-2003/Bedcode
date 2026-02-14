@@ -323,23 +323,19 @@ async def upload_image(file: UploadFile = File(...), caption: str = Form("")):
         f.write(data)
     logger.info(f"[API/image] 图片已保存: {filepath} ({len(data)} bytes)")
     text = caption or "请分析这个图片"
-    if not state.get("stream_mode"):
-        # 剪贴板+粘贴必须在同一线程执行
-        def _clipboard_paste():
-            ok = copy_image_to_clipboard(filepath)
-            logger.info(f"[API/image] copy_image_to_clipboard: {ok}")
-            if not ok:
-                return False
-            ok2 = paste_image_to_window(handle)
-            logger.info(f"[API/image] paste_image_to_window: {ok2}")
-            return ok2
-        pasted = await asyncio.to_thread(_clipboard_paste)
-        if pasted:
-            await asyncio.sleep(0.5)
-            await asyncio.to_thread(send_keys_to_window, handle, text)
-            logger.info(f"[API/image] send_keys done: {text[:50]}")
-            return {"status": "sent", "method": "paste"}
-    inject_text = f"{caption} {filepath}" if caption else f"请分析这个图片 {filepath}"
+    # 与 TG handle_photo 完全一致的逻辑
+    if handle and not state.get("stream_mode"):
+        copied = await asyncio.to_thread(copy_image_to_clipboard, filepath)
+        logger.info(f"[API/image] copy_to_clipboard: {copied}")
+        if copied:
+            pasted = await asyncio.to_thread(paste_image_to_window, handle)
+            logger.info(f"[API/image] paste_to_window: {pasted}")
+            if pasted:
+                await asyncio.to_thread(send_keys_to_window, handle, text)
+                logger.info(f"[API/image] send_keys: {text[:50]}")
+                return {"status": "sent", "method": "paste"}
+    # 降级：路径注入
+    inject_text = f"{text} {filepath}"
     await asyncio.to_thread(send_keys_to_window, handle, inject_text)
-    logger.info(f"[API/image] fallback path inject: {inject_text[:50]}")
+    logger.info(f"[API/image] fallback: {inject_text[:60]}")
     return {"status": "sent", "method": "path"}
