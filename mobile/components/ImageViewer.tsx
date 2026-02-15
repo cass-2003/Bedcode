@@ -1,7 +1,5 @@
-import React from 'react';
-import { StyleSheet, Dimensions, Pressable, Modal } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
+import React, { useRef } from 'react';
+import { StyleSheet, Dimensions, Pressable, Modal, Animated, PanResponder, View, Text } from 'react-native';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -12,95 +10,125 @@ type Props = {
 };
 
 export default function ImageViewer({ visible, uri, onClose }: Props) {
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const savedX = useSharedValue(0);
-  const savedY = useSharedValue(0);
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const lastScale = useRef(1);
+  const lastDist = useRef(0);
+  const lastX = useRef(0);
+  const lastY = useRef(0);
 
-  const pinch = Gesture.Pinch()
-    .onUpdate((e) => { scale.value = savedScale.value * e.scale; })
-    .onEnd(() => {
-      if (scale.value < 1) { scale.value = withTiming(1); savedScale.value = 1; }
-      else { savedScale.value = scale.value; }
-    });
+  const reset = () => {
+    scale.setValue(1);
+    translateX.setValue(0);
+    translateY.setValue(0);
+    lastScale.current = 1;
+    lastX.current = 0;
+    lastY.current = 0;
+  };
 
-  const pan = Gesture.Pan()
-    .onUpdate((e) => {
-      translateX.value = savedX.value + e.translationX;
-      translateY.value = savedY.value + e.translationY;
-    })
-    .onEnd(() => {
-      if (scale.value <= 1) {
-        translateX.value = withTiming(0);
-        translateY.value = withTiming(0);
-        savedX.value = 0;
-        savedY.value = 0;
-      } else {
-        savedX.value = translateX.value;
-        savedY.value = translateY.value;
+  const getDistance = (touches: any[]) => {
+    const dx = touches[0].pageX - touches[1].pageX;
+    const dy = touches[0].pageY - touches[1].pageY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (e) => {
+      const touches = e.nativeEvent.touches;
+      if (touches.length === 2) {
+        lastDist.current = getDistance(touches);
       }
-    });
-
-  const doubleTap = Gesture.Tap().numberOfTaps(2).onEnd(() => {
-    if (scale.value > 1) {
-      scale.value = withTiming(1);
-      translateX.value = withTiming(0);
-      translateY.value = withTiming(0);
-      savedScale.value = 1;
-      savedX.value = 0;
-      savedY.value = 0;
-    } else {
-      scale.value = withTiming(2.5);
-      savedScale.value = 2.5;
-    }
-  });
-
-  const composed = Gesture.Simultaneous(pinch, pan, doubleTap);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-  }));
+    },
+    onPanResponderMove: (e, gesture) => {
+      const touches = e.nativeEvent.touches;
+      if (touches.length === 2) {
+        const dist = getDistance(touches);
+        if (lastDist.current > 0) {
+          const newScale = Math.max(0.5, Math.min(5, lastScale.current * (dist / lastDist.current)));
+          scale.setValue(newScale);
+        }
+      } else if (lastScale.current > 1) {
+        translateX.setValue(lastX.current + gesture.dx);
+        translateY.setValue(lastY.current + gesture.dy);
+      }
+    },
+    onPanResponderRelease: () => {
+      lastScale.current = (scale as any).__getValue();
+      if (lastScale.current < 1) {
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
+        lastScale.current = 1;
+      }
+      lastX.current = (translateX as any).__getValue();
+      lastY.current = (translateY as any).__getValue();
+      if (lastScale.current <= 1) {
+        Animated.parallel([
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+        ]).start();
+        lastX.current = 0;
+        lastY.current = 0;
+      }
+    },
+  })).current;
 
   const handleClose = () => {
-    scale.value = 1;
-    savedScale.value = 1;
-    translateX.value = 0;
-    translateY.value = 0;
-    savedX.value = 0;
-    savedY.value = 0;
+    reset();
     onClose();
+  };
+
+  let lastTap = useRef(0);
+  const handleTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 300) {
+      // double tap
+      if (lastScale.current > 1.5) {
+        Animated.parallel([
+          Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+        ]).start();
+        lastScale.current = 1;
+        lastX.current = 0;
+        lastY.current = 0;
+      } else {
+        Animated.spring(scale, { toValue: 2.5, useNativeDriver: true }).start();
+        lastScale.current = 2.5;
+      }
+    }
+    lastTap.current = now;
   };
 
   if (!visible) return null;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={handleClose}>
-      <GestureHandlerRootView style={styles.root}>
-        <Pressable style={styles.closeZone} onPress={handleClose} />
-        <GestureDetector gesture={composed}>
-          <Animated.Image
-            source={{ uri }}
-            style={[styles.image, animStyle]}
-            resizeMode="contain"
-          />
-        </GestureDetector>
+      <View style={styles.root}>
+        <Animated.Image
+          source={{ uri }}
+          style={[styles.image, {
+            transform: [
+              { translateX },
+              { translateY },
+              { scale },
+            ],
+          }]}
+          resizeMode="contain"
+          {...panResponder.panHandlers}
+          onResponderRelease={handleTap}
+        />
         <Pressable style={styles.closeBtn} onPress={handleClose}>
-          <Animated.Text style={styles.closeText}>{'\u2715'}</Animated.Text>
+          <Text style={styles.closeText}>{'\u2715'}</Text>
         </Pressable>
-      </GestureHandlerRootView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
-  closeZone: { ...StyleSheet.absoluteFillObject },
   image: { width: SW, height: SH * 0.8 },
   closeBtn: { position: 'absolute', top: 50, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
   closeText: { color: '#fff', fontSize: 18 },
