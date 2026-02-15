@@ -15,12 +15,19 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: c.headerBg,
           borderTopWidth: 0,
-          height: 50,
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 56,
+          paddingBottom: 4,
           elevation: 0,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -1 },
-          shadowOpacity: 0.1,
-          shadowRadius: 2,
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
         },
         tabBarActiveTintColor: c.tabActive,
         tabBarInactiveTintColor: c.tabInactive,
@@ -28,19 +35,19 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 22 }}>💬</Text> }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 24 }}>💬</Text> }}
       />
       <Tabs.Screen
         name="windows"
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 22 }}>🪟</Text> }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 24 }}>🪟</Text> }}
       />
       <Tabs.Screen
         name="history"
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 22 }}>📋</Text> }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 24 }}>📋</Text> }}
       />
       <Tabs.Screen
         name="settings"
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 22 }}>⚙️</Text> }}
+        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 24 }}>⚙️</Text> }}
       />
     </Tabs>
   );

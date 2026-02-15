@@ -63,7 +63,7 @@ export default function HistoryScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <View style={[styles.item, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
+          <View style={[styles.item, { backgroundColor: c.surface }]}>
             <Text style={[styles.itemText, { color: c.text }]} numberOfLines={2}>{item.text}</Text>
             <Pressable
               style={[styles.itemBtn, { backgroundColor: item._type === 'queue' ? c.danger : c.accent }]}
@@ -83,11 +83,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   headerBar: { paddingTop: 50, paddingBottom: 14, paddingHorizontal: 16 },
   header: { fontSize: 18, fontWeight: '600' },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, marginHorizontal: 12, marginTop: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   sectionTitle: { fontSize: 14, fontWeight: '600' },
-  item: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  item: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginHorizontal: 12, marginVertical: 3 },
   itemText: { flex: 1, fontSize: 14, marginRight: 8 },
-  itemBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  itemBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14 },
   itemBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  empty: { textAlign: 'center', marginTop: 40, fontSize: 14 },
+  empty: { textAlign: 'center', marginTop: 60, fontSize: 14 },
 });

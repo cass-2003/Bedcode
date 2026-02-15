@@ -28,7 +28,8 @@ export default function WindowsScreen() {
           <TouchableOpacity
             style={[
               styles.item,
-              { backgroundColor: item.current ? c.bubbleSent : c.surface, borderBottomColor: c.border },
+              { backgroundColor: item.current ? c.bubbleSent : c.surface },
+              item.current && { borderLeftWidth: 3, borderLeftColor: c.accent },
             ]}
             onPress={() => switchWindow(item.handle)}
           >
@@ -53,11 +54,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   headerBar: { paddingTop: 50, paddingBottom: 14, paddingHorizontal: 16 },
   header: { fontSize: 18, fontWeight: '600' },
-  item: { padding: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  title: { fontSize: 15, fontWeight: '500', marginBottom: 6 },
+  item: { padding: 14, borderRadius: 12, marginHorizontal: 12, marginVertical: 3 },
+  title: { fontSize: 16, fontWeight: '500', marginBottom: 6 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  badge: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: 6 },
   badgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   label: { fontSize: 12 },
-  empty: { textAlign: 'center', marginTop: 40, fontSize: 14 },
+  empty: { textAlign: 'center', marginTop: 60, fontSize: 14 },
 });

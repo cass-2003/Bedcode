@@ -20,6 +20,10 @@ export const Colors = {
     timeRecv: 'rgba(255,255,255,0.45)',
     tabActive: '#FFFFFF',
     tabInactive: 'rgba(255,255,255,0.5)',
+    bubbleSentGradientEnd: '#1E3A52',
+    senderColors: ['#FF5733','#6AB2F2','#A580FF','#FF8C42','#4ECDC4','#F2668B','#8FD14F'] as readonly string[],
+    actionBg: 'rgba(255,255,255,0.08)',
+    actionText: '#6AB2F2',
   },
   light: {
     background: '#EFEAE2',
@@ -42,6 +46,10 @@ export const Colors = {
     timeRecv: 'rgba(0,0,0,0.35)',
     tabActive: '#FFFFFF',
     tabInactive: 'rgba(255,255,255,0.6)',
+    bubbleSentGradientEnd: '#E2F8CE',
+    senderColors: ['#FF5733','#6AB2F2','#A580FF','#FF8C42','#4ECDC4','#F2668B','#8FD14F'] as readonly string[],
+    actionBg: 'rgba(0,0,0,0.05)',
+    actionText: '#168ACD',
   },
 } as const;
 

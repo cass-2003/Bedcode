@@ -69,10 +69,10 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
               {actions.map((a, i) => (
                 <Pressable
                   key={i}
-                  style={[styles.actionButton, { backgroundColor: c.accent }]}
+                  style={[styles.actionButton, { backgroundColor: c.actionBg, borderWidth: 1, borderColor: c.actionText }]}
                   onPress={() => onAction?.(a.action || 'qr', a.keys)}
                 >
-                  <Text style={styles.actionButtonText}>{a.label}</Text>
+                  <Text style={[styles.actionButtonText, { color: c.actionText }]}>{a.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -112,7 +112,7 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
           ]}
         >
           {(!isSent && !isScreenshot || isPrompt) && showSender !== false && (
-            <Text style={[styles.senderName, { color: c.accent }]}>Claude</Text>
+            <Text style={[styles.senderName, { color: c.senderColors[0] }]}>Claude</Text>
           )}
 
           {isSent && imageUri && (
@@ -152,10 +152,10 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
               {actions.map((a, i) => (
                 <Pressable
                   key={i}
-                  style={[styles.actionButton, { backgroundColor: c.accent }]}
+                  style={[styles.actionButton, { backgroundColor: c.actionBg, borderWidth: 1, borderColor: c.actionText }]}
                   onPress={() => onAction?.(a.action || 'qr', a.keys)}
                 >
-                  <Text style={styles.actionButtonText}>{a.label}</Text>
+                  <Text style={[styles.actionButtonText, { color: c.actionText }]}>{a.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -167,21 +167,21 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', marginBottom: 2, paddingHorizontal: 8 },
-  bubbleWrap: { maxWidth: SCREEN_W * 0.78 },
+  row: { flexDirection: 'row', marginBottom: 3, paddingHorizontal: 8 },
+  bubbleWrap: { maxWidth: SCREEN_W * 0.82 },
   bubble: {
-    paddingHorizontal: 11,
-    paddingTop: 7,
-    paddingBottom: 5,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 6,
     minWidth: 60,
   },
   senderName: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   text: { fontSize: 15, lineHeight: 20 },
   timeInlineSpacer: { fontSize: 11, color: 'transparent' },
   meta: { flexDirection: 'row', alignSelf: 'flex-end', alignItems: 'center', marginTop: 1 },
-  time: { fontSize: 11 },
+  time: { fontSize: 11, letterSpacing: 0.2 },
   statusText: { fontSize: 11 },
-  screenshotImg: { width: 280, height: 210, borderRadius: 12, marginBottom: 4 },
+  screenshotImg: { width: SCREEN_W * 0.65, aspectRatio: 4 / 3, borderRadius: 14, marginBottom: 4 },
   imgTimePill: {
     position: 'absolute',
     bottom: 8,
@@ -193,10 +193,10 @@ const styles = StyleSheet.create({
   },
   imgTimeText: { color: '#fff', fontSize: 11 },
   systemWrap: { alignItems: 'center', marginVertical: 4 },
-  systemBubble: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 },
+  systemBubble: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6 },
   systemText: { fontSize: 13 },
-  sentImage: { width: 200, height: 150, borderRadius: 10, marginBottom: 4 },
+  sentImage: { width: SCREEN_W * 0.5, aspectRatio: 4 / 3, borderRadius: 12, marginBottom: 4 },
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  actionButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
-  actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '500' },
+  actionButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  actionButtonText: { fontSize: 13, fontWeight: '500' },
 });

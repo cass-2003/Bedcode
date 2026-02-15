@@ -8,7 +8,11 @@ export default function ThinkingIndicator() {
   const claudeState = useChatStore((s) => s.claudeState);
   const c = Colors[theme];
 
-  const dots = [useRef(new Animated.Value(1)).current, useRef(new Animated.Value(1)).current, useRef(new Animated.Value(1)).current];
+  const dots = [
+    { scale: useRef(new Animated.Value(1)).current, opacity: useRef(new Animated.Value(0.4)).current },
+    { scale: useRef(new Animated.Value(1)).current, opacity: useRef(new Animated.Value(0.4)).current },
+    { scale: useRef(new Animated.Value(1)).current, opacity: useRef(new Animated.Value(0.4)).current },
+  ];
 
   useEffect(() => {
     if (claudeState !== 'thinking') return;
@@ -16,8 +20,14 @@ export default function ThinkingIndicator() {
       Animated.loop(
         Animated.sequence([
           Animated.delay(i * 180),
-          Animated.timing(dot, { toValue: 1.4, duration: 250, useNativeDriver: true }),
-          Animated.timing(dot, { toValue: 1, duration: 250, useNativeDriver: true }),
+          Animated.parallel([
+            Animated.timing(dot.scale, { toValue: 1.4, duration: 250, useNativeDriver: true }),
+            Animated.timing(dot.opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(dot.scale, { toValue: 1, duration: 250, useNativeDriver: true }),
+            Animated.timing(dot.opacity, { toValue: 0.4, duration: 250, useNativeDriver: true }),
+          ]),
         ])
       )
     );
@@ -33,7 +43,7 @@ export default function ThinkingIndicator() {
         {dots.map((dot, i) => (
           <Animated.View
             key={i}
-            style={[styles.dot, { backgroundColor: c.accent, transform: [{ scale: dot }] }]}
+            style={[styles.dot, { backgroundColor: c.accent, opacity: dot.opacity, transform: [{ scale: dot.scale }] }]}
           />
         ))}
       </View>
@@ -51,7 +61,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    gap: 5,
+    gap: 6,
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  dot: { width: 7, height: 7, borderRadius: 3.5 },
 });

@@ -34,10 +34,11 @@ export default function LoginScreen() {
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
       <Text style={[styles.logo, { color: c.accent }]}>BedCode</Text>
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <Text style={{ color: c.textSecondary, fontSize: 14, marginBottom: 24 }}>Remote Claude Code Control</Text>
+      <View style={[styles.card, { backgroundColor: c.surface }]}>
         <Text style={[styles.label, { color: c.textSecondary }]}>服务器地址</Text>
         <TextInput
-          style={[styles.input, { backgroundColor: c.inputField, color: c.text, borderColor: c.border }]}
+          style={[styles.input, { backgroundColor: c.inputField, color: c.text }]}
           value={host}
           onChangeText={setHost}
           placeholder="http://192.168.1.100:8080"
@@ -47,7 +48,7 @@ export default function LoginScreen() {
         />
         <Text style={[styles.label, { color: c.textSecondary }]}>API Token</Text>
         <TextInput
-          style={[styles.input, { backgroundColor: c.inputField, color: c.text, borderColor: c.border }]}
+          style={[styles.input, { backgroundColor: c.inputField, color: c.text }]}
           value={token}
           onChangeText={setToken}
           placeholder="输入 Token"
@@ -73,10 +74,10 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  logo: { fontSize: 32, fontWeight: '700', marginBottom: 32 },
-  card: { width: '100%', maxWidth: 400, borderRadius: 12, borderWidth: 1, padding: 20 },
+  logo: { fontSize: 36, fontWeight: '700', marginBottom: 8, letterSpacing: 1 },
+  card: { width: '100%', maxWidth: 400, borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 },
   label: { fontSize: 13, marginBottom: 6, marginTop: 12 },
-  input: { height: 44, borderRadius: 8, borderWidth: 1, paddingHorizontal: 12, fontSize: 15 },
-  button: { height: 46, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 24 },
+  input: { height: 48, borderRadius: 12, paddingHorizontal: 12, fontSize: 15 },
+  button: { height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 24 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

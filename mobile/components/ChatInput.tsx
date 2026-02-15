@@ -63,7 +63,7 @@ export default function ChatInput({ onSend }: Props) {
   const isLight = theme === 'light';
 
   return (
-    <View style={[styles.container, { backgroundColor: c.inputBar }]}>
+    <View style={[styles.container, { backgroundColor: c.inputBar, borderTopColor: c.border }]}>
       {imageUris.length > 0 && (
         <View style={styles.previewRow}>
           {imageUris.map((uri, i) => (
@@ -98,7 +98,7 @@ export default function ChatInput({ onSend }: Props) {
         />
         <Animated.View style={{ transform: [{ scale: sendScale }], opacity: sendScale }}>
           <Pressable onPress={handleSend} style={[styles.sendBtn, { backgroundColor: c.accent }]}>
-            <Text style={styles.sendIcon}>{'\u279C'}</Text>
+            <Text style={[styles.sendIcon, { transform: [{ rotate: '45deg' }] }]}>{'\u2708'}</Text>
           </Pressable>
         </Animated.View>
       </View>
@@ -110,35 +110,31 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 8,
     paddingVertical: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   row: { flexDirection: 'row', alignItems: 'flex-end' },
   attachBtn: { padding: 10, justifyContent: 'center' },
-  attachIcon: { fontSize: 24 },
+  attachIcon: { fontSize: 22, opacity: 0.7 },
   input: {
     flex: 1,
-    borderRadius: 21,
+    borderRadius: 22,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 11,
     fontSize: 16,
     maxHeight: 120,
     marginHorizontal: 6,
   },
   sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendIcon: { color: '#fff', fontSize: 18 },
   previewRow: { marginBottom: 6, marginLeft: 46, flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   previewBorder: { borderWidth: 1, borderRadius: 10, padding: 2, alignSelf: 'flex-start' },
-  preview: { width: 64, height: 64, borderRadius: 8 },
+  preview: { width: 72, height: 72, borderRadius: 10 },
   removeBtn: {
     position: 'absolute',
     top: -6,
