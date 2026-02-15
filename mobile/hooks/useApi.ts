@@ -2,53 +2,58 @@ import { useChatStore } from '../stores/chatStore';
 
 type ApiResult = { ok: boolean; data?: any; error?: string };
 
+function getAuth() {
+  const { host, token } = useChatStore.getState();
+  return { host, token };
+}
+
+async function _fetch(path: string, options?: RequestInit): Promise<ApiResult> {
+  const { host, token } = getAuth();
+  if (!host || !token) return { ok: false, error: 'Not connected' };
+  try {
+    const res = await fetch(`${host}${path}`, {
+      ...options,
+      headers: {
+        ...(options?.headers || {}),
+        ...(!isFormData(options?.body) ? { 'Content-Type': 'application/json' } : {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = await res.json().catch(() => null);
+    return { ok: true, data };
+  } catch (e: any) {
+    return { ok: false, error: e.message || 'Network error' };
+  }
+}
+
+function isFormData(body: any): body is FormData {
+  return body instanceof FormData;
+}
+
 export function useApi() {
-  const host = useChatStore((s) => s.host);
-  const token = useChatStore((s) => s.token);
-
-  const _fetch = async (path: string, options?: RequestInit): Promise<ApiResult> => {
-    if (!host || !token) return { ok: false, error: 'Not connected' };
-    try {
-      const res = await fetch(`${host}${path}`, {
-        ...options,
-        headers: {
-          ...(options?.headers || {}),
-          ...(!options?.headers?.hasOwnProperty?.('Content-Type') && !isFormData(options?.body)
-            ? { 'Content-Type': 'application/json' }
-            : {}),
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
-      const data = await res.json().catch(() => null);
-      return { ok: true, data };
-    } catch (e: any) {
-      return { ok: false, error: e.message || 'Network error' };
-    }
-  };
-
-  const getScreenshot = async (): Promise<ApiResult> => {
-    try {
-      const res = await fetch(`${host}/api/screenshot`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
-      const blob = await res.blob();
-      const base64: string = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      return { ok: true, data: base64 };
-    } catch (e: any) {
-      return { ok: false, error: e.message || 'Network error' };
-    }
-  };
-
   return {
     getStatus: () => _fetch('/api/status'),
-    getScreenshot,
+    getScreenshot: async (): Promise<ApiResult> => {
+      const { host, token } = getAuth();
+      if (!host || !token) return { ok: false, error: 'Not connected' };
+      try {
+        const res = await fetch(`${host}/api/screenshot`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+        const blob = await res.blob();
+        const base64: string = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        return { ok: true, data: base64 };
+      } catch (e: any) {
+        return { ok: false, error: e.message || 'Network error' };
+      }
+    },
     sendMessage: (text: string) => _fetch('/api/send', { method: 'POST', body: JSON.stringify({ text }) }),
     sendImage: (uri: string, caption: string) => {
       const form = new FormData();
@@ -73,8 +78,4 @@ export function useApi() {
     runShell: (cmd: string) => _fetch('/api/shell', { method: 'POST', body: JSON.stringify({ cmd }) }),
     sendBatch: (messages: string[]) => _fetch('/api/batch', { method: 'POST', body: JSON.stringify({ messages }) }),
   };
-}
-
-function isFormData(body: any): body is FormData {
-  return body instanceof FormData;
 }

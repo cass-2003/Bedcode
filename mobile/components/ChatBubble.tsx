@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Alert,
   Animated,
   Pressable,
+  Modal,
   StyleSheet,
   Dimensions,
 } from 'react-native';
@@ -45,6 +46,8 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
   const theme = useChatStore((s) => s.theme);
   const c = Colors[theme];
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreenUri, setFullscreenUri] = useState('');
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
@@ -57,7 +60,14 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
     ]);
   };
 
+  const openImage = (uri: string) => {
+    setFullscreenUri(uri);
+    setFullscreen(true);
+  };
+
   const time = formatTime(timestamp);
+
+  const imgSrc = imageBase64 ? `data:image/png;base64,${imageBase64}` : imageUri || '';
 
   if (type === 'system') {
     return (
@@ -94,75 +104,86 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
     </Text>
   ) : null;
 
+  const hasImage = (isSent && imageUri) || (isScreenshot && imageBase64);
+
   return (
-    <Animated.View
-      style={[
-        styles.row,
-        { justifyContent: isSent ? 'flex-end' : 'flex-start', opacity: fadeAnim },
-      ]}
-    >
-      <Pressable onLongPress={handleLongPress} style={styles.bubbleWrap}>
-        <View
-          style={[
-            styles.bubble,
-            { backgroundColor: bubbleBg },
-            isSent
-              ? { borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 4 }
-              : { borderTopLeftRadius: 4, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
-          ]}
-        >
-          {(!isSent && !isScreenshot || isPrompt) && showSender !== false && (
-            <Text style={[styles.senderName, { color: c.senderColors[0] }]}>Claude</Text>
-          )}
+    <>
+      <Animated.View
+        style={[
+          styles.row,
+          { justifyContent: isSent ? 'flex-end' : 'flex-start', opacity: fadeAnim },
+        ]}
+      >
+        <Pressable onLongPress={handleLongPress} style={styles.bubbleWrap}>
+          <View
+            style={[
+              styles.bubble,
+              { backgroundColor: bubbleBg },
+              hasImage && !text ? styles.imageBubble : undefined,
+              isSent
+                ? { borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 4 }
+                : { borderTopLeftRadius: 4, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
+            ]}
+          >
+            {(!isSent && !isScreenshot || isPrompt) && showSender !== false && (
+              <Text style={[styles.senderName, { color: c.senderColors[0] }]}>Claude</Text>
+            )}
 
-          {isSent && imageUri && (
-            <Image source={{ uri: imageUri }} style={styles.sentImage} resizeMode="cover" />
-          )}
+            {isSent && imageUri && (
+              <Pressable onPress={() => openImage(imageUri)}>
+                <Image source={{ uri: imageUri }} style={styles.fullImage} resizeMode="cover" />
+              </Pressable>
+            )}
 
-          {isScreenshot && imageBase64 ? (
-            <View>
-              <Pressable onPress={() => console.log('screenshot tap', id)}>
+            {isScreenshot && imageBase64 ? (
+              <Pressable onPress={() => openImage(`data:image/png;base64,${imageBase64}`)}>
                 <Image
                   source={{ uri: `data:image/png;base64,${imageBase64}` }}
-                  style={styles.screenshotImg}
+                  style={styles.fullImage}
                   resizeMode="cover"
                 />
+                <View style={styles.imgTimePill}>
+                  <Text style={styles.imgTimeText}>{time}</Text>
+                </View>
               </Pressable>
-              <View style={styles.imgTimePill}>
-                <Text style={styles.imgTimeText}>{time}</Text>
+            ) : null}
+
+            {text ? (
+              <Text style={[styles.text, { color: c.text }]}>
+                {text}
+                <Text style={styles.timeInlineSpacer}>{'      '}{statusEl ? '    ' : ''}</Text>
+              </Text>
+            ) : null}
+
+            {(!isScreenshot || text) && (
+              <View style={styles.meta}>
+                <Text style={[styles.time, { color: timeColor }]}>{time}</Text>
+                {statusEl}
               </View>
-            </View>
-          ) : null}
+            )}
+            {actions && actions.length > 0 && (
+              <View style={styles.actionsRow}>
+                {actions.map((a, i) => (
+                  <Pressable
+                    key={i}
+                    style={[styles.actionButton, { backgroundColor: c.actionBg, borderWidth: 1, borderColor: c.actionText }]}
+                    onPress={() => onAction?.(a.action || 'qr', a.keys)}
+                  >
+                    <Text style={[styles.actionButtonText, { color: c.actionText }]}>{a.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        </Pressable>
+      </Animated.View>
 
-          {text ? (
-            <Text style={[styles.text, { color: c.text }]}>
-              {text}
-              <Text style={styles.timeInlineSpacer}>{'      '}{statusEl ? '    ' : ''}</Text>
-            </Text>
-          ) : null}
-
-          {(!isScreenshot || text) && (
-            <View style={styles.meta}>
-              <Text style={[styles.time, { color: timeColor }]}>{time}</Text>
-              {statusEl}
-            </View>
-          )}
-          {actions && actions.length > 0 && (
-            <View style={styles.actionsRow}>
-              {actions.map((a, i) => (
-                <Pressable
-                  key={i}
-                  style={[styles.actionButton, { backgroundColor: c.actionBg, borderWidth: 1, borderColor: c.actionText }]}
-                  onPress={() => onAction?.(a.action || 'qr', a.keys)}
-                >
-                  <Text style={[styles.actionButtonText, { color: c.actionText }]}>{a.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
-      </Pressable>
-    </Animated.View>
+      <Modal visible={fullscreen} transparent animationType="fade" onRequestClose={() => setFullscreen(false)}>
+        <Pressable style={styles.fullscreenOverlay} onPress={() => setFullscreen(false)}>
+          <Image source={{ uri: fullscreenUri }} style={styles.fullscreenImage} resizeMode="contain" />
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -175,13 +196,14 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     minWidth: 60,
   },
+  imageBubble: { paddingHorizontal: 3, paddingTop: 3, paddingBottom: 3 },
   senderName: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   text: { fontSize: 15, lineHeight: 20 },
   timeInlineSpacer: { fontSize: 11, color: 'transparent' },
   meta: { flexDirection: 'row', alignSelf: 'flex-end', alignItems: 'center', marginTop: 1 },
   time: { fontSize: 11, letterSpacing: 0.2 },
   statusText: { fontSize: 11 },
-  screenshotImg: { width: SCREEN_W * 0.65, aspectRatio: 4 / 3, borderRadius: 14, marginBottom: 4 },
+  fullImage: { width: SCREEN_W * 0.7, aspectRatio: 4 / 3, borderRadius: 14, marginBottom: 4 },
   imgTimePill: {
     position: 'absolute',
     bottom: 8,
@@ -195,8 +217,9 @@ const styles = StyleSheet.create({
   systemWrap: { alignItems: 'center', marginVertical: 4 },
   systemBubble: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6 },
   systemText: { fontSize: 13 },
-  sentImage: { width: SCREEN_W * 0.5, aspectRatio: 4 / 3, borderRadius: 12, marginBottom: 4 },
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   actionButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   actionButtonText: { fontSize: 13, fontWeight: '500' },
+  fullscreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+  fullscreenImage: { width: '95%', height: '80%' },
 });
