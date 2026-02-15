@@ -6,13 +6,13 @@ import {
   Alert,
   Animated,
   Pressable,
-  Modal,
   StyleSheet,
   Dimensions,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Colors } from '../constants/theme';
 import { useChatStore } from '../stores/chatStore';
+import ImageViewer from './ImageViewer';
 
 type Props = {
   id: string;
@@ -178,11 +178,7 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
         </Pressable>
       </Animated.View>
 
-      <Modal visible={fullscreen} transparent animationType="fade" onRequestClose={() => setFullscreen(false)}>
-        <Pressable style={styles.fullscreenOverlay} onPress={() => setFullscreen(false)}>
-          <Image source={{ uri: fullscreenUri }} style={styles.fullscreenImage} resizeMode="contain" />
-        </Pressable>
-      </Modal>
+      <ImageViewer visible={fullscreen} uri={fullscreenUri} onClose={() => setFullscreen(false)} />
     </>
   );
 }
@@ -220,6 +216,4 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   actionButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   actionButtonText: { fontSize: 13, fontWeight: '500' },
-  fullscreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
-  fullscreenImage: { width: '95%', height: '80%' },
 });
