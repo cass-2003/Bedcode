@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
 import { useChatStore } from '../../stores/chatStore';
 import { Colors } from '../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
   const theme = useChatStore((s) => s.theme);
@@ -35,19 +35,19 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 24 }}>💬</Text> }}
+        options={{ tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'chatbubble' : 'chatbubble-outline'} size={22} color={color} /> }}
       />
       <Tabs.Screen
         name="windows"
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 24 }}>🪟</Text> }}
+        options={{ tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'layers' : 'layers-outline'} size={22} color={color} /> }}
       />
       <Tabs.Screen
         name="history"
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 24 }}>📋</Text> }}
+        options={{ tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'time' : 'time-outline'} size={22} color={color} /> }}
       />
       <Tabs.Screen
         name="settings"
-        options={{ tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 24 }}>⚙️</Text> }}
+        options={{ tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} /> }}
       />
     </Tabs>
   );
