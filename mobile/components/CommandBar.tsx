@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, Modal, Animated, StyleSheet } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Colors } from '../constants/theme';
 import { useChatStore } from '../stores/chatStore';
 
@@ -61,9 +62,10 @@ export default function CommandBar({ visible, onClose, onAction, onShell, onKeys
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <Animated.View
-          style={[styles.sheet, { backgroundColor: c.surface, transform: [{ translateY: slideAnim }] }]}
+          style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}
           onStartShouldSetResponder={() => true}
         >
+          <BlurView intensity={90} tint={theme === 'dark' ? 'dark' : 'light'} style={[styles.sheetInner, { backgroundColor: theme === 'dark' ? 'rgba(23,33,43,0.7)' : 'rgba(255,255,255,0.7)' }]}>
           <View style={styles.handle} />
 
           <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>快捷操作</Text>
@@ -107,6 +109,7 @@ export default function CommandBar({ visible, onClose, onAction, onShell, onKeys
               <Text style={styles.shellRunText}>{'\u25B6'}</Text>
             </Pressable>
           </View>
+          </BlurView>
         </Animated.View>
       </Pressable>
     </Modal>
@@ -115,7 +118,8 @@ export default function CommandBar({ visible, onClose, onAction, onShell, onKeys
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 8, paddingBottom: 36, paddingHorizontal: 16, maxHeight: '70%' },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden', maxHeight: '70%' },
+  sheetInner: { paddingTop: 8, paddingBottom: 36, paddingHorizontal: 16, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginBottom: 12 },
   sectionLabel: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', marginTop: 12, marginBottom: 8, letterSpacing: 0.5 },
   quickRow: { marginBottom: 4 },

@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useChatStore } from '../../stores/chatStore';
 import { Colors } from '../../constants/theme';
 
@@ -12,8 +13,15 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        tabBarBackground: () => (
+          <BlurView
+            intensity={80}
+            tint={theme === 'dark' ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+        ),
         tabBarStyle: {
-          backgroundColor: c.headerBg,
+          backgroundColor: theme === 'dark' ? 'rgba(23,33,43,0.65)' : 'rgba(255,255,255,0.65)',
           borderTopWidth: 0,
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,

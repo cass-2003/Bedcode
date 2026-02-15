@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/theme';
 import { useChatStore } from '../stores/chatStore';
@@ -29,8 +30,8 @@ export default function StatusHeader({ onAction }: { onAction?: () => void }) {
   const subtitle = windowLabel || windowTitle || '';
 
   return (
-    <View style={[styles.container, { backgroundColor: c.headerBg, paddingTop: insets.top }]}>
-      <View style={styles.row}>
+    <BlurView intensity={80} tint={theme === 'dark' ? 'dark' : 'light'} style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.row, { backgroundColor: theme === 'dark' ? 'rgba(23,33,43,0.65)' : 'rgba(81,125,162,0.65)' }]}>
         <View style={styles.left}>
           <View style={[styles.avatarRing, { borderColor: c.accent }]}>
             <View style={[styles.avatar, { backgroundColor: c.accent }]}>
@@ -51,7 +52,7 @@ export default function StatusHeader({ onAction }: { onAction?: () => void }) {
           </Pressable>
         )}
       </View>
-    </View>
+    </BlurView>
   );
 }
 

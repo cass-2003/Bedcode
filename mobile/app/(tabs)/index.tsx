@@ -149,4 +149,5 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   list: { paddingHorizontal: 12, paddingVertical: 8 },
+  bottomSpacer: { height: 56 },
 });
