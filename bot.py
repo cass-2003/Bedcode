@@ -139,6 +139,7 @@ async def run_all():
         cf_proc = subprocess.Popen(
             [cf_exe, "tunnel", "--config", cf_config, "run", "bedcode"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
         )
         logger.info("Cloudflare Tunnel 已启动 → https://bed.haiio.xyz")
     else:
