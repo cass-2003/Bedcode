@@ -41,7 +41,7 @@ export default function LoginScreen() {
           style={[styles.input, { backgroundColor: c.inputField, color: c.text }]}
           value={host}
           onChangeText={setHost}
-          placeholder="http://192.168.1.100:8080"
+          placeholder="https://bed.haiio.xyz"
           placeholderTextColor={c.textSecondary}
           autoCapitalize="none"
           autoCorrect={false}

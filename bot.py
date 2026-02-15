@@ -3,6 +3,7 @@
 import os
 import asyncio
 import signal
+import subprocess
 
 from telegram import Update
 from telegram.ext import (
@@ -130,6 +131,19 @@ async def run_all():
     api_port = int(os.environ.get("API_PORT", "8080"))
     logger.info(f"BedCode v6 启动 | TG用户: {ALLOWED_USERS} | API: http://0.0.0.0:{api_port} | Token: {API_TOKEN}")
 
+    # 5. 启动 Cloudflare Tunnel
+    cf_proc = None
+    cf_exe = os.path.expanduser("~/cloudflared.exe")
+    cf_config = os.path.expanduser("~/.cloudflared/bedcode.yml")
+    if os.path.isfile(cf_exe) and os.path.isfile(cf_config):
+        cf_proc = subprocess.Popen(
+            [cf_exe, "tunnel", "--config", cf_config, "run", "bedcode"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        logger.info("Cloudflare Tunnel 已启动 → https://bed.haiio.xyz")
+    else:
+        logger.warning("cloudflared 未找到，跳过隧道启动")
+
     import uvicorn
     uvi_config = uvicorn.Config(
         fastapi_app, host="0.0.0.0", port=api_port,
@@ -140,6 +154,10 @@ async def run_all():
     try:
         await server.serve()
     finally:
+        if cf_proc:
+            cf_proc.terminate()
+            cf_proc.wait(timeout=5)
+            logger.info("Cloudflare Tunnel 已停止")
         await tg_app.updater.stop()
         await tg_app.stop()
         await tg_app.shutdown()
