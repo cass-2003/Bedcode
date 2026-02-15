@@ -11,7 +11,8 @@ export default function WindowsScreen() {
 
   const refresh = useCallback(async () => {
     const res = await api.getWindows();
-    if (res.ok && Array.isArray(res.data)) setWindows(res.data);
+    const list = res.data?.windows ?? res.data;
+    if (res.ok && Array.isArray(list)) setWindows(list);
   }, []);
 
   useEffect(() => { refresh(); }, []);
