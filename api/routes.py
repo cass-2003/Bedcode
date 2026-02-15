@@ -336,6 +336,7 @@ async def upload_image(file: UploadFile = File(...), caption: str = Form("")):
             pasted = await asyncio.to_thread(paste_image_to_window, handle)
             logger.info(f"[API/image] paste: {pasted}")
             if pasted:
+                await asyncio.sleep(2)  # 等待 Claude 处理图片粘贴
                 await asyncio.to_thread(send_keys_to_window, handle, text)
                 logger.info(f"[API/image] keys: {text[:50]}")
                 return {"status": "sent", "method": "paste"}
