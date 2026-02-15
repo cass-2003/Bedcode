@@ -105,6 +105,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     setClaudeState: (claudeState) => {
+      const prev = get().claudeState;
+      if (prev === claudeState) return;
       set({
         claudeState,
         thinkingStart: claudeState === 'thinking' ? Date.now() : null,

@@ -34,7 +34,7 @@ export function useWebSocket() {
         useChatStore.getState().setConnected(true);
         pingRef.current = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) ws.send('ping');
-        }, 25000);
+        }, 15000);
       };
 
       ws.onmessage = (e) => {

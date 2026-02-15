@@ -121,8 +121,8 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
               { backgroundColor: bubbleBg },
               hasImage && !text ? styles.imageBubble : undefined,
               isSent
-                ? { borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 4 }
-                : { borderTopLeftRadius: 4, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
+                ? { borderTopLeftRadius: 12, borderTopRightRadius: 12, borderBottomLeftRadius: 12, borderBottomRightRadius: 4 }
+                : { borderTopLeftRadius: 4, borderTopRightRadius: 12, borderBottomLeftRadius: 12, borderBottomRightRadius: 12 },
             ]}
           >
             {(!isSent && !isScreenshot || isPrompt) && showSender !== false && (
@@ -132,6 +132,9 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
             {isSent && imageUri && (
               <Pressable onPress={() => openImage(imageUri)}>
                 <Image source={{ uri: imageUri }} style={styles.fullImage} resizeMode="cover" />
+                <View style={styles.imgTimePill}>
+                  <Text style={styles.imgTimeText}>{time}{statusEl ? ' ' : ''}{statusEl && (statusIcon[status!] ?? status)}</Text>
+                </View>
               </Pressable>
             )}
 
