@@ -253,6 +253,10 @@ async def _monitor_loop(
                         )
                     except Exception:
                         pass
+                    await bus.emit(Event("prompt", {
+                        "text": prompt[-1500:],
+                        "options": [{"label": label, "keys": keys} for label, keys in qr_buttons] if qr_buttons else []
+                    }))
                     await _delete_status()
                     break
 
@@ -277,7 +281,16 @@ async def _monitor_loop(
                     img = await asyncio.to_thread(capture_window_screenshot, handle)
                     if img:
                         await bus.emit(Event("screenshot", {"image_bytes": img}))
-                    await bus.emit(Event("completion", {"label": state.get("window_labels", {}).get(handle, ""), "handle": handle}))
+                    await bus.emit(Event("completion", {
+                        "label": state.get("window_labels", {}).get(handle, ""),
+                        "handle": handle,
+                        "actions": [
+                            {"label": "🔄 重试", "action": "retry_again"},
+                            {"label": "🔀 换方案", "action": "retry_alt"},
+                            {"label": "✅ 已完成", "action": "done"},
+                            {"label": "🔘 需要选择", "action": "waiting"},
+                        ]
+                    }))
 
                     if state.get("auto_pin", True):
                         try:
@@ -492,7 +505,16 @@ async def _passive_monitor_loop(app) -> None:
 
                         await app.bot.send_message(chat_id=chat_id, text=f"📌{label} 完成")
                         await _forward_result(chat_id, handle, app)
-                        await bus.emit(Event("completion", {"label": label, "handle": handle}))
+                        await bus.emit(Event("completion", {
+                            "label": label,
+                            "handle": handle,
+                            "actions": [
+                                {"label": "🔄 重试", "action": "retry_again"},
+                                {"label": "🔀 换方案", "action": "retry_alt"},
+                                {"label": "✅ 已完成", "action": "done"},
+                                {"label": "🔘 需要选择", "action": "waiting"},
+                            ]
+                        }))
 
                         ws["was_thinking"] = False
                         ws["idle_count"] = 0
