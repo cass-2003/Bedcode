@@ -1,19 +1,25 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { useChatStore } from '../../stores/chatStore';
 import { Colors } from '../../constants/theme';
 import { useApi } from '../../hooks/useApi';
 
 export default function WindowsScreen() {
-  const { windows, theme } = useChatStore();
+  const { windows, theme, setWindows } = useChatStore();
   const api = useApi();
   const c = Colors[theme];
 
-  const refresh = useCallback(async () => { await api.getWindows(); }, []);
+  const refresh = useCallback(async () => {
+    const res = await api.getWindows();
+    if (res.ok && Array.isArray(res.data)) setWindows(res.data);
+  }, []);
+
+  useEffect(() => { refresh(); }, []);
 
   const switchWindow = useCallback(async (handle: number) => {
     await api.setTarget(handle);
-  }, []);
+    refresh();
+  }, [refresh]);
 
   return (
     <View style={[styles.container, { backgroundColor: c.background }]}>
