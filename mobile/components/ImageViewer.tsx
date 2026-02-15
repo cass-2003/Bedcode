@@ -41,6 +41,8 @@ export default function ImageViewer({ visible, uri, onClose }: Props) {
         style={styles.root}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
+        onResponderTerminationRequest={() => false}
+        onResponderTerminate={() => { touchCount.current = 0; pinchDist.current = 0; }}
         onResponderGrant={(e) => {
           const t = e.nativeEvent.touches;
           touchCount.current = t.length;
