@@ -22,8 +22,9 @@ export default function StatusHeader({ onAction }: { onAction?: () => void }) {
     return () => clearInterval(id);
   }, [claudeState, thinkingStart]);
 
+  const fmt = elapsed >= 60 ? `${Math.floor(elapsed / 60)}m${String(elapsed % 60).padStart(2, '0')}s` : `${elapsed}s`;
   const stateText =
-    claudeState === 'thinking' ? `thinking ${elapsed}s` :
+    claudeState === 'thinking' ? `thinking ${fmt}` :
     claudeState === 'idle' ? 'idle' : 'unknown';
 
   const subtitle = windowLabel || windowTitle || '';
