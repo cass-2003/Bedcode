@@ -44,6 +44,7 @@ from utils import (
 )
 
 logger = logging.getLogger("bedcode")
+_paste_lock = asyncio.Lock()
 
 VOICE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "voices")
 os.makedirs(VOICE_DIR, exist_ok=True)
@@ -824,20 +825,20 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # 尝试 Alt+V 粘贴图片到 Claude Code 窗口
     if handle and not state.get("stream_mode"):
-        copied = await asyncio.to_thread(copy_image_to_clipboard, filepath)
-        if copied:
-            pasted = await asyncio.to_thread(paste_image_to_window, handle)
-            if pasted:
-                await update.message.reply_text("🖼 图片已通过 Alt+V 粘贴")
-                if caption:
-                    # 有 caption：输入文字并回车
-                    await asyncio.to_thread(send_keys_to_window, handle, caption)
-                else:
-                    # 无 caption：直接回车提交图片
-                    await asyncio.to_thread(send_keys_to_window, handle, "请分析这个图片")
-                if state["auto_monitor"]:
-                    _start_monitor(handle, update.effective_chat.id, context)
-                return
+        async with _paste_lock:
+            copied = await asyncio.to_thread(copy_image_to_clipboard, filepath)
+            if copied:
+                pasted = await asyncio.to_thread(paste_image_to_window, handle)
+                if pasted:
+                    await update.message.reply_text("🖼 图片已通过 Alt+V 粘贴")
+                    if caption:
+                        await asyncio.to_thread(send_keys_to_window, handle, caption)
+                    else:
+                        await asyncio.to_thread(send_keys_to_window, handle, "请分析这个图片")
+                    await asyncio.sleep(2)
+                    if state["auto_monitor"]:
+                        _start_monitor(handle, update.effective_chat.id, context)
+                    return
 
     # 降级：路径注入
     inject_text = f"{caption} {filepath}" if caption else f"请分析这个图片 {filepath}"

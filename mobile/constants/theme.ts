@@ -38,7 +38,7 @@ export const Colors = {
     inputBar: '#FFFFFF',
     inputField: '#FFFFFF',
     headerBg: '#517DA2',
-    headerText: '#FFFFFF',
+    headerText: '#000000',
     danger: '#D32F2F',
     success: '#388E3C',
     warning: '#F57C00',
