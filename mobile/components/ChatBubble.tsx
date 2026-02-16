@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -48,6 +48,14 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [fullscreen, setFullscreen] = useState(false);
   const [fullscreenUri, setFullscreenUri] = useState('');
+  const [imgRatio, setImgRatio] = useState(16 / 9);
+
+  useEffect(() => {
+    const uri = imageUri || (imageBase64 ? `data:image/png;base64,${imageBase64}` : '');
+    if (uri) {
+      Image.getSize(uri, (w, h) => { if (w && h) setImgRatio(w / h); }, () => {});
+    }
+  }, [imageUri, imageBase64]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
@@ -67,7 +75,8 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
 
   const time = formatTime(timestamp);
 
-  const imgSrc = imageBase64 ? `data:image/png;base64,${imageBase64}` : imageUri || '';
+  const imgW = imgRatio >= 1 ? SCREEN_W * 0.75 : SCREEN_W * 0.55;
+  const imgStyle = { width: imgW, aspectRatio: imgRatio, borderRadius: 8 };
 
   if (type === 'system') {
     return (
@@ -106,6 +115,9 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
 
   const hasImage = (isSent && imageUri) || (isScreenshot && imageBase64);
 
+  // Skip empty bubbles
+  if (!text && !hasImage && (!actions || actions.length === 0)) return null;
+
   return (
     <>
       <Animated.View
@@ -120,7 +132,9 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
               styles.bubble,
               { backgroundColor: bubbleBg },
               hasImage && !text ? styles.imageBubble : undefined,
-              isSent
+              hasImage && !text
+                ? { borderRadius: 10 }
+                : isSent
                 ? { borderTopLeftRadius: 12, borderTopRightRadius: 12, borderBottomLeftRadius: 12, borderBottomRightRadius: 4 }
                 : { borderTopLeftRadius: 4, borderTopRightRadius: 12, borderBottomLeftRadius: 12, borderBottomRightRadius: 12 },
             ]}
@@ -131,7 +145,7 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
 
             {isSent && imageUri && (
               <Pressable onPress={() => openImage(imageUri)}>
-                <Image source={{ uri: imageUri }} style={styles.fullImage} resizeMode="cover" />
+                <Image source={{ uri: imageUri }} style={imgStyle} resizeMode="cover" />
                 <View style={styles.imgTimePill}>
                   <Text style={styles.imgTimeText}>{time}{statusEl ? ' ' : ''}{statusEl && (statusIcon[status!] ?? status)}</Text>
                 </View>
@@ -142,7 +156,7 @@ export default function ChatBubble({ id, type, text, timestamp, status, imageBas
               <Pressable onPress={() => openImage(`data:image/png;base64,${imageBase64}`)}>
                 <Image
                   source={{ uri: `data:image/png;base64,${imageBase64}` }}
-                  style={styles.fullImage}
+                  style={imgStyle}
                   resizeMode="cover"
                 />
                 <View style={styles.imgTimePill}>
@@ -195,14 +209,13 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     minWidth: 60,
   },
-  imageBubble: { paddingHorizontal: 3, paddingTop: 3, paddingBottom: 3 },
+  imageBubble: { paddingHorizontal: 2, paddingTop: 2, paddingBottom: 2, minWidth: 0, overflow: 'hidden' },
   senderName: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   text: { fontSize: 15, lineHeight: 20 },
   timeInlineSpacer: { fontSize: 11, color: 'transparent' },
   meta: { flexDirection: 'row', position: 'absolute', bottom: 4, right: 8, alignItems: 'center' },
   time: { fontSize: 10, letterSpacing: 0.2 },
   statusText: { fontSize: 10 },
-  fullImage: { width: SCREEN_W * 0.7, aspectRatio: 4 / 3, borderRadius: 8, marginBottom: 4 },
   imgTimePill: {
     position: 'absolute',
     bottom: 8,

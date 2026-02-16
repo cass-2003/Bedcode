@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useChatStore } from '../stores/chatStore';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useAutoMonitor } from '../hooks/useAutoMonitor';
+import { useScheduler } from '../hooks/useScheduler';
 
 export default function RootLayout() {
   const { host, token, theme } = useChatStore();
@@ -11,6 +13,8 @@ export default function RootLayout() {
   const segments = useSegments();
   const [ready, setReady] = useState(false);
   useWebSocket();
+  useAutoMonitor();
+  useScheduler();
 
   useEffect(() => {
     setReady(true);

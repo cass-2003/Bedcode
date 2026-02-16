@@ -9,6 +9,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 [![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-blue.svg?logo=telegram)](https://core.telegram.org/bots)
 [![Web UI](https://img.shields.io/badge/Web-PWA-green.svg)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps)
+[![Mobile App](https://img.shields.io/badge/Mobile-Expo-blueviolet.svg?logo=expo)](https://expo.dev/)
 
 </div>
 
@@ -71,6 +72,45 @@ Claude 思考时自动排队消息。完成后按顺序发送。
 </td>
 </tr>
 </table>
+
+---
+
+## 📱 Mobile App (v2.0)
+
+原生移动客户端，基于 React Native + Expo，提供完整的远程控制体验。
+
+### 新增功能
+
+| 功能 | 说明 |
+|------|------|
+| 🪟 多窗口管理 | 切换/监控多个 Claude Code 窗口，独立消息流 |
+| 👁️ 自动截屏监控 | Claude 思考时自动截屏推送到聊天 |
+| 🎛️ 底部快捷操作栏 | 截屏/窗口/监控/停止/状态/剪贴板一键操作 |
+| ⌨️ /命令系统 | 输入框直接输入 `/screenshot`、`/watch`、`/stop` 等命令 |
+| 📝 消息模板 | 保存常用指令，快速发送 |
+| 📦 批量发送 | 一次发送多条消息 |
+| 🔍 历史搜索 | 搜索聊天历史记录 |
+| ⏰ 定时任务 | 延时发送消息 |
+| 🎛️ 自定义面板 | 自定义快捷按钮 |
+| 🔗 命令别名 | 自定义命令快捷方式 |
+
+### UI 特性
+
+- TG 风格聊天气泡（发送/接收/系统/截图）
+- 毛玻璃半透明顶栏，显示当前窗口名称和 Claude 状态
+- 图片自适应宽高比（竖图/横图智能缩放）
+- 深色/浅色主题自动切换
+- 图片全屏查看器
+
+### 运行 Mobile App
+
+```bash
+cd mobile
+npm install
+npx expo start --tunnel
+```
+
+扫描终端中的二维码即可在手机上打开。
 
 ---
 
@@ -282,7 +322,29 @@ BedCode/
 │   ├── sw.js           # Service Worker
 │   └── icon.svg        # 应用图标
 ├── .env.example        # 配置模板
-└── requirements.txt    # Python 依赖
+├── requirements.txt    # Python 依赖
+└── mobile/             # React Native 移动客户端 (Expo)
+    ├── app/            # Expo Router 页面
+    │   ├── (tabs)/     # Tab 导航（聊天/窗口/设置）
+    │   └── _layout.tsx # 根布局 + 自动监控挂载
+    ├── components/     # UI 组件
+    │   ├── ChatBubble.tsx    # TG 风格聊天气泡
+    │   ├── ChatInput.tsx     # 输入框 + /命令补全
+    │   ├── StatusHeader.tsx  # 毛玻璃顶栏
+    │   ├── ActionBar.tsx     # 底部快捷操作栏
+    │   ├── ImageViewer.tsx   # 图片全屏查看
+    │   ├── CommandBar.tsx    # 命令面板
+    │   ├── TemplatePanel.tsx # 模板管理
+    │   ├── BatchPanel.tsx    # 批量发送
+    │   └── HistoryPanel.tsx  # 历史搜索
+    ├── stores/chatStore.ts   # Zustand 状态管理
+    ├── hooks/
+    │   ├── useApi.ts         # API 封装
+    │   ├── useAutoMonitor.ts # 自动截屏监控
+    │   └── useScheduler.ts   # 定时任务
+    ├── constants/theme.ts    # 主题色彩
+    ├── app.json              # Expo 配置
+    └── package.json          # 依赖
 ```
 
 ---

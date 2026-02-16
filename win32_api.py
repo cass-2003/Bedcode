@@ -245,7 +245,9 @@ def send_keys_to_window(handle: int, text: str) -> bool:
             _make_key_input(vk=VK_CONTROL, flags=KEYEVENTF_KEYUP),
         )
         user32.SendInput(4, ctypes.byref(inputs), ctypes.sizeof(INPUT))
-        time.sleep(0.3)
+        time.sleep(0.8)
+        _activate_window(handle)
+        time.sleep(0.1)
         _send_vk(VK_RETURN)
         logger.info(f"注入成功(剪贴板): {text[:50]}")
         return True

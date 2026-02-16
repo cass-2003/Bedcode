@@ -13,23 +13,22 @@ export default function ImageViewer({ visible, uri, onClose }: Props) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
-  const baseScale = useRef(1);
-  const pinchDist = useRef(0);
-  const panX = useRef(0);
-  const panY = useRef(0);
+
+  const cur = useRef({ scale: 1, x: 0, y: 0 });
+  const gesture = useRef<'none' | 'pinch' | 'pan'>('none');
+  const pinchStart = useRef(0);
+  const panStart = useRef({ x: 0, y: 0 });
   const lastTap = useRef(0);
-  const touchCount = useRef(0);
 
   const reset = useCallback(() => {
     scale.setValue(1);
     translateX.setValue(0);
     translateY.setValue(0);
-    baseScale.current = 1;
-    panX.current = 0;
-    panY.current = 0;
+    cur.current = { scale: 1, x: 0, y: 0 };
+    gesture.current = 'none';
   }, []);
 
-  const dist = (a: any, b: any) => Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY);
+  const dist = (t: any) => Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
 
   const handleClose = useCallback(() => { reset(); onClose(); }, [onClose, reset]);
 
@@ -42,74 +41,106 @@ export default function ImageViewer({ visible, uri, onClose }: Props) {
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
         onResponderTerminationRequest={() => false}
-        onResponderTerminate={() => { touchCount.current = 0; pinchDist.current = 0; }}
         onResponderGrant={(e) => {
           const t = e.nativeEvent.touches;
-          touchCount.current = t.length;
-          if (t.length === 2) pinchDist.current = dist(t[0], t[1]);
+          if (t.length === 2) {
+            gesture.current = 'pinch';
+            pinchStart.current = dist(t);
+          } else if (t.length === 1) {
+            gesture.current = 'pan';
+            panStart.current = { x: t[0].pageX, y: t[0].pageY };
+          }
         }}
         onResponderMove={(e) => {
           const t = e.nativeEvent.touches;
-          touchCount.current = t.length;
-          if (t.length === 2 && pinchDist.current > 0) {
-            const d = dist(t[0], t[1]);
-            const s = Math.max(0.5, Math.min(5, baseScale.current * (d / pinchDist.current)));
+          if (t.length === 2) {
+            if (gesture.current !== 'pinch') {
+              gesture.current = 'pinch';
+              pinchStart.current = dist(t);
+            }
+            const d = dist(t);
+            const s = Math.max(0.5, Math.min(5, cur.current.scale * (d / pinchStart.current)));
             scale.setValue(s);
-          } else if (t.length === 1 && baseScale.current > 1) {
-            translateX.setValue(panX.current + (t[0].pageX - e.nativeEvent.pageX));
-            translateY.setValue(panY.current + (t[0].pageY - e.nativeEvent.pageY));
+          } else if (t.length === 1 && gesture.current === 'pan' && cur.current.scale > 1) {
+            const dx = t[0].pageX - panStart.current.x;
+            const dy = t[0].pageY - panStart.current.y;
+            translateX.setValue(cur.current.x + dx);
+            translateY.setValue(cur.current.y + dy);
           }
         }}
         onResponderRelease={(e) => {
-          const curScale = (scale as any).__getValue();
-          if (touchCount.current >= 2) {
-            // pinch ended
-            baseScale.current = curScale;
-            if (curScale < 1) {
-              Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
-              baseScale.current = 1;
+          const t = e.nativeEvent.touches;
+          // Still have fingers down — update state for remaining gesture
+          if (t.length >= 2) {
+            pinchStart.current = dist(t);
+            return;
+          }
+          if (t.length === 1) {
+            // One finger lifted from pinch — save scale, switch to pan
+            if (gesture.current === 'pinch') {
+              const d = dist([t[0], { pageX: e.nativeEvent.pageX, pageY: e.nativeEvent.pageY }]);
+              const s = Math.max(0.5, Math.min(5, cur.current.scale * (d / (pinchStart.current || 1))));
+              cur.current.scale = s < 1 ? 1 : s;
+              if (s < 1) {
+                Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
+              }
+              gesture.current = 'pan';
+              panStart.current = { x: t[0].pageX, y: t[0].pageY };
             }
-            pinchDist.current = 0;
-          } else {
-            // single finger release
-            panX.current = (translateX as any).__getValue();
-            panY.current = (translateY as any).__getValue();
-            if (curScale <= 1) {
+            return;
+          }
+
+          // All fingers up
+          if (gesture.current === 'pinch') {
+            // Read final scale from ratio
+            // Already saved above when going 2→1, but handle 2→0 directly
+            const raw = (scale as any)._value ?? cur.current.scale;
+            cur.current.scale = raw < 1 ? 1 : raw;
+            if (raw < 1) {
+              Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
+              cur.current.scale = 1;
+            }
+          } else if (gesture.current === 'pan') {
+            const raw = {
+              x: (translateX as any)._value ?? cur.current.x,
+              y: (translateY as any)._value ?? cur.current.y,
+            };
+            cur.current.x = raw.x;
+            cur.current.y = raw.y;
+            if (cur.current.scale <= 1) {
               Animated.parallel([
                 Animated.spring(translateX, { toValue: 0, useNativeDriver: true, friction: 7 }),
                 Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 7 }),
               ]).start();
-              panX.current = 0;
-              panY.current = 0;
-            }
-            // double tap
-            const now = Date.now();
-            if (now - lastTap.current < 300) {
-              if (baseScale.current > 1.5) {
-                Animated.parallel([
-                  Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 7 }),
-                  Animated.spring(translateX, { toValue: 0, useNativeDriver: true, friction: 7 }),
-                  Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 7 }),
-                ]).start();
-                baseScale.current = 1;
-                panX.current = 0;
-                panY.current = 0;
-              } else {
-                Animated.spring(scale, { toValue: 2.5, useNativeDriver: true, friction: 7 }).start();
-                baseScale.current = 2.5;
-              }
-              lastTap.current = 0;
-            } else {
-              lastTap.current = now;
-              // single tap — close if not zoomed
-              if (baseScale.current <= 1) {
-                setTimeout(() => {
-                  if (Date.now() - lastTap.current >= 280) handleClose();
-                }, 300);
-              }
+              cur.current.x = 0;
+              cur.current.y = 0;
             }
           }
-          touchCount.current = 0;
+
+          // Double tap
+          const now = Date.now();
+          if (now - lastTap.current < 300) {
+            if (cur.current.scale > 1.5) {
+              Animated.parallel([
+                Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 7 }),
+                Animated.spring(translateX, { toValue: 0, useNativeDriver: true, friction: 7 }),
+                Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 7 }),
+              ]).start();
+              cur.current = { scale: 1, x: 0, y: 0 };
+            } else {
+              Animated.spring(scale, { toValue: 2.5, useNativeDriver: true, friction: 7 }).start();
+              cur.current.scale = 2.5;
+            }
+            lastTap.current = 0;
+          } else {
+            lastTap.current = now;
+            if (cur.current.scale <= 1 && gesture.current !== 'pinch') {
+              setTimeout(() => {
+                if (Date.now() - lastTap.current >= 280) handleClose();
+              }, 300);
+            }
+          }
+          gesture.current = 'none';
         }}
       >
         <Animated.Image
@@ -129,7 +160,7 @@ export default function ImageViewer({ visible, uri, onClose }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
-  image: { width: SW, height: SH * 0.85 },
+  image: { width: SW, height: SH },
   closeBtn: { position: 'absolute', top: 50, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   closeText: { color: '#fff', fontSize: 18 },
 });

@@ -19,7 +19,7 @@ from claude_detect import (
     detect_claude_state, find_claude_windows, read_terminal_text,
     read_last_transcript_response,
 )
-from utils import _get_handle, _needs_file, _save_msg_file, _save_state
+from utils import _get_handle, _needs_file, _save_msg_file, _save_state, _save_labels
 from monitor import _cancel_monitor
 
 router = APIRouter()
@@ -53,6 +53,10 @@ class ShellBody(BaseModel):
 
 class BatchBody(BaseModel):
     messages: list[str]
+
+class LabelBody(BaseModel):
+    handle: int
+    label: str
 
 
 # ── Endpoints ──
@@ -345,3 +349,10 @@ async def upload_image(file: UploadFile = File(...), caption: str = Form("")):
     await asyncio.to_thread(send_keys_to_window, handle, inject_text)
     logger.info(f"[API/image] fallback path: {inject_text[:60]}")
     return {"status": "sent", "method": "path"}
+
+
+@router.post("/label")
+async def label_set(body: LabelBody):
+    state.setdefault("window_labels", {})[body.handle] = body.label
+    _save_labels()
+    return {"status": "ok", "handle": body.handle, "label": body.label}

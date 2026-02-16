@@ -77,5 +77,6 @@ export function useApi() {
     updateConfig: (config: Record<string, any>) => _fetch('/api/config', { method: 'PATCH', body: JSON.stringify(config) }),
     runShell: (cmd: string) => _fetch('/api/shell', { method: 'POST', body: JSON.stringify({ cmd }) }),
     sendBatch: (messages: string[]) => _fetch('/api/batch', { method: 'POST', body: JSON.stringify({ messages }) }),
+    setLabel: (handle: number, label: string) => _fetch('/api/label', { method: 'POST', body: JSON.stringify({ handle, label }) }),
   };
 }
